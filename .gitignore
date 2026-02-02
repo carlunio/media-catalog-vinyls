@@ -1,0 +1,9 @@
+# Entorno y variables de entorno
+.venv
+.env
+
+# Python package metadata
+*.egg-info/
+
+# Base de datos
+data/vinilos.duckdb
