@@ -1,0 +1,3 @@
+docs: Añadir texto de prueba en about.qmd
+
+src/backend: Eliminar líneas en blanco innecesarias en discogs_client.py
