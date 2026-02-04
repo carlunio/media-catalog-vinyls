@@ -24,7 +24,7 @@ COLUMNS = [
 
 
 def export_vinilos_txt(output_path: Path):
-    rows = vinilos.list_all()
+    rows = vinilos.list_all_full()
 
     lines = []
     lines.append("\t".join(COLUMNS))  # cabecera

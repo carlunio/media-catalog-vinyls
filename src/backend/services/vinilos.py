@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+
 from ..database import get_connection
 from ..normalizers import normalizar_año
 
@@ -65,7 +66,8 @@ def preparar():
             else:
                 tracklist.append(f"{pos} - {title}")
 
-        con.execute("""
+        con.execute(
+            """
             INSERT INTO vinilos (
                 id, tipo_articulo, nombre, artista, año,
                 sello, pais, duracion_total, estimated_weight,
@@ -80,22 +82,24 @@ def preparar():
                 'Para subir', 'En stock',
                 ?, ?, ?
             )
-        """, (
-            vid,
-            data.get("title"),
-            artista,
-            año,
-            data.get("labels", [{}])[0].get("name"),
-            data.get("country"),
-            None,
-            data.get("estimated_weight"),
-            ", ".join(data.get("genres", [])),
-            ", ".join(data.get("styles", [])),
-            data.get("lowest_price"),
-            "\n".join(tracklist),
-            data.get("notes"),
-            datetime.now()
-        ))
+        """,
+            (
+                vid,
+                data.get("title"),
+                artista,
+                año,
+                data.get("labels", [{}])[0].get("name"),
+                data.get("country"),
+                None,
+                data.get("estimated_weight"),
+                ", ".join(data.get("genres", [])),
+                ", ".join(data.get("styles", [])),
+                data.get("lowest_price"),
+                "\n".join(tracklist),
+                data.get("notes"),
+                datetime.now(),
+            ),
+        )
 
         nuevos += 1
 
@@ -123,7 +127,8 @@ def list_all():
 # =========================
 def get_one(id_):
     con = get_connection()
-    row = con.execute("""
+    row = con.execute(
+        """
         SELECT
             id, tipo_articulo, nombre, artista, año,
             sello, pais, duracion_total, estimated_weight,
@@ -132,7 +137,9 @@ def get_one(id_):
             estado_carga, estado_stock, tracklist, notas
         FROM vinilos
         WHERE id = ?
-    """, (id_,)).fetchone()
+    """,
+        (id_,),
+    ).fetchone()
     con.close()
 
     if not row:
@@ -161,12 +168,33 @@ def get_one(id_):
 
 
 # =========================
+# Consulta de toda la tabla
+# =========================
+
+
+def list_all_full():
+    con = get_connection()
+
+    rows = con.execute("""
+        SELECT *
+        FROM vinilos
+        ORDER BY nombre
+    """).fetchall()
+
+    cols = [d[0] for d in con.execute("PRAGMA table_info(vinilos)").fetchall()]
+    con.close()
+
+    return [dict(zip(cols, row)) for row in rows]
+
+
+# =========================
 # ACTUALIZAR
 # =========================
 def update(id_, data: dict):
     con = get_connection()
 
-    con.execute("""
+    con.execute(
+        """
         UPDATE vinilos
         SET
             tipo_articulo = ?,
@@ -187,25 +215,27 @@ def update(id_, data: dict):
             notas = ?,
             updated_at = ?
         WHERE id = ?
-    """, (
-        data.get("tipo_articulo"),
-        data.get("nombre"),
-        data.get("artista"),
-        normalizar_año(data.get("año")),
-        data.get("sello"),
-        data.get("pais"),
-        data.get("duracion_total"),
-        data.get("estimated_weight"),
-        data.get("generos"),
-        data.get("estilos"),
-        data.get("tracklist"),
-        data.get("estado_conservacion"),
-        data.get("precio"),
-        data.get("estado_carga"),
-        data.get("estado_stock"),
-        data.get("notas"),
-        datetime.now(),
-        id_
-    ))
+    """,
+        (
+            data.get("tipo_articulo"),
+            data.get("nombre"),
+            data.get("artista"),
+            normalizar_año(data.get("año")),
+            data.get("sello"),
+            data.get("pais"),
+            data.get("duracion_total"),
+            data.get("estimated_weight"),
+            data.get("generos"),
+            data.get("estilos"),
+            data.get("tracklist"),
+            data.get("estado_conservacion"),
+            data.get("precio"),
+            data.get("estado_carga"),
+            data.get("estado_stock"),
+            data.get("notas"),
+            datetime.now(),
+            id_,
+        ),
+    )
 
     con.close()
