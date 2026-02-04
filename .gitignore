@@ -7,3 +7,6 @@
 
 # Base de datos
 data/vinilos.duckdb
+
+# Ficheros txt exportados
+exports/

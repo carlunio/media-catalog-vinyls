@@ -13,7 +13,7 @@ PROJECT_ROOT = Path(
 # -------------------------
 DB_PATH = Path(
     os.getenv(
-        "VINIDB_PATH",
+        "DB_PATH",
         PROJECT_ROOT / "data" / "vinilos.duckdb"
     )
 )

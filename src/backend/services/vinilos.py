@@ -181,10 +181,15 @@ def list_all_full():
         ORDER BY nombre
     """).fetchall()
 
-    cols = [d[0] for d in con.execute("PRAGMA table_info(vinilos)").fetchall()]
+    cols = [
+        d[1]  # ← nombre de columna, NO cid
+        for d in con.execute("PRAGMA table_info(vinilos)").fetchall()
+    ]
+
     con.close()
 
     return [dict(zip(cols, row)) for row in rows]
+
 
 
 # =========================
