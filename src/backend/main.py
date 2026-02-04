@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
-from .services import vinilos, vinilos_raw
+
 from .discogs_client import get_client
+from .services import export, vinilos, vinilos_raw
 
 app = FastAPI()
 
@@ -15,26 +16,21 @@ client = get_client()
 # =========================
 
 from typing import List
+
 from .schemas.discogs import DiscogsSearchResult
 
 
-@app.get(
-    "/discogs/search",
-    response_model=List[DiscogsSearchResult]
-)
+@app.get("/discogs/search", response_model=List[DiscogsSearchResult])
 def search_discogs(q: str):
     try:
         results = list(client.search(q, type="release"))[:5]
         return [
-            {
-                "id": r.id,
-                "title": r.title,
-                "thumb": getattr(r, "thumb", None)
-            }
+            {"id": r.id, "title": r.title, "thumb": getattr(r, "thumb", None)}
             for r in results
         ]
     except Exception as e:
         raise HTTPException(status_code=429, detail=str(e))
+
 
 @app.get("/discogs/release/{release_id}")
 def get_release(release_id: int):
@@ -42,7 +38,7 @@ def get_release(release_id: int):
         release = client.release(release_id)
 
         # 🔥 ESTO ES LO QUE FALTABA
-        release.refresh()   # ← fuerza la carga COMPLETA
+        release.refresh()  # ← fuerza la carga COMPLETA
 
         return release.data  # JSON COMPLETO, igual que en tu app antigua
 
@@ -59,12 +55,9 @@ from .schemas.vinilos_raw import ViniloRawIn
 
 @app.post("/vinilos_raw")
 def save_raw(payload: ViniloRawIn):
-    vinilos_raw.save(
-        payload.id,
-        payload.data,
-        payload.overwrite
-    )
+    vinilos_raw.save(payload.id, payload.data, payload.overwrite)
     return {"ok": True}
+
 
 # 🔹 AÑADIDO: existe
 @app.get("/vinilos_raw/exists/{id_}")
@@ -107,3 +100,17 @@ def get_vinilo(id_: str):
 def update_vinilo(id_: str, payload: dict):
     vinilos.update(id_, payload)
     return {"ok": True}
+
+
+# =========================
+# EXPORTACIÓN
+# =========================
+
+from pathlib import Path
+
+
+@app.get("/export/vinilos/txt")
+def export_vinilos_txt():
+    output = Path("exports/vinilos.txt")
+    export.export_vinilos_txt(output)
+    return {"ok": True, "path": str(output)}
