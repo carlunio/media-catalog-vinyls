@@ -10,3 +10,5 @@ data/vinilos.duckdb
 
 # Ficheros txt exportados
 exports/
+
+*__pycache__

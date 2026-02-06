@@ -37,10 +37,9 @@ def get_release(release_id: int):
     try:
         release = client.release(release_id)
 
-        # 🔥 ESTO ES LO QUE FALTABA
-        release.refresh()  # ← fuerza la carga COMPLETA
+        release.refresh()
 
-        return release.data  # JSON COMPLETO, igual que en tu app antigua
+        return release.data  
 
     except Exception as e:
         print("ERROR DISCOSG RELEASE:", repr(e))
