@@ -1,8 +1,4 @@
-#!/bin/bash
-cd "$(dirname "$0")/.."
+#!/usr/bin/env bash
 
-echo "Stopping the application..."
-make stop
-
-echo "Application stopped"
-read -p "Press Enter to close..."
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+exec "$SCRIPT_DIR/run-make-target.sh" stop "Stopping the application"

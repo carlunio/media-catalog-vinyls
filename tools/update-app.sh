@@ -1,8 +1,4 @@
-#!/bin/bash
-cd "$(dirname "$0")/.."
+#!/usr/bin/env bash
 
-echo "Updating the application..."
-git pull
-
-echo "Application updated"
-read -p "Press Enter to close..."
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+exec "$SCRIPT_DIR/run-make-target.sh" update "Updating the application"

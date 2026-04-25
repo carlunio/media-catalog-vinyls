@@ -1,8 +1,4 @@
-#!/bin/bash
-cd "$(dirname "$0")/.."
+#!/usr/bin/env bash
 
-echo "Launching the application..."
-make dev
-
-echo "Application started"
-read -p "Press Enter to close..."
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+exec "$SCRIPT_DIR/run-make-target.sh" dev "Launching the application"
