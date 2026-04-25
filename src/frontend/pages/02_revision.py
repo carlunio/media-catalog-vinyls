@@ -6,9 +6,23 @@ except ModuleNotFoundError:  # pragma: no cover
     from backend.normalizers import normalizar_año
 
 try:
-    from src.frontend.utils import api_get, api_post, api_put, configure_page, show_backend_status
+    from src.frontend.utils import (
+        api_get,
+        api_post,
+        api_put,
+        configure_page,
+        render_icon_heading,
+        show_backend_status,
+    )
 except ModuleNotFoundError:  # pragma: no cover
-    from frontend.utils import api_get, api_post, api_put, configure_page, show_backend_status
+    from frontend.utils import (
+        api_get,
+        api_post,
+        api_put,
+        configure_page,
+        render_icon_heading,
+        show_backend_status,
+    )
 
 configure_page("Revisión | Catálogo de vinilos")
 
@@ -20,10 +34,10 @@ def _safe_index(options, value, default=0):
         return default
 
 
-st.title("📝 Revisión y edición de vinilos")
+render_icon_heading("Revisión y edición de vinilos", icon="pen-to-square", level=1)
 show_backend_status()
 
-st.subheader("1️⃣ Preparación automática")
+render_icon_heading("Preparación automática", icon="gears", level=2)
 
 if st.button("Preparar fichas desde vinilos_raw"):
     try:
@@ -35,7 +49,7 @@ if st.button("Preparar fichas desde vinilos_raw"):
 
 st.divider()
 
-st.subheader("2️⃣ Revisión manual")
+render_icon_heading("Revisión manual", icon="sliders", level=2)
 
 try:
     rows = api_get("/vinilos")
@@ -68,12 +82,12 @@ st.caption(f"Registro {st.session_state['vinilo_idx'] + 1} de {total}")
 nav_l, nav_r = st.columns(2)
 
 with nav_l:
-    if st.button("⬅️ Anterior", disabled=st.session_state["vinilo_idx"] == 0):
+    if st.button("Anterior", disabled=st.session_state["vinilo_idx"] == 0):
         st.session_state["vinilo_idx"] -= 1
         st.rerun()
 
 with nav_r:
-    if st.button("Siguiente ➡️", disabled=st.session_state["vinilo_idx"] == total - 1):
+    if st.button("Siguiente", disabled=st.session_state["vinilo_idx"] == total - 1):
         st.session_state["vinilo_idx"] += 1
         st.rerun()
 
@@ -180,7 +194,7 @@ with st.form("form_revision"):
 
     with c17:
         st.markdown(" ")
-        guardar = st.form_submit_button("💾 Guardar cambios")
+        guardar = st.form_submit_button("Guardar cambios")
 
     if guardar:
         payload = {

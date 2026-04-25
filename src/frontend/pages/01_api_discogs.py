@@ -7,6 +7,8 @@ try:
         api_get,
         api_post,
         configure_page,
+        render_empty_icon,
+        render_icon_heading,
         show_backend_status,
     )
 except ModuleNotFoundError:  # pragma: no cover
@@ -15,12 +17,14 @@ except ModuleNotFoundError:  # pragma: no cover
         api_get,
         api_post,
         configure_page,
+        render_empty_icon,
+        render_icon_heading,
         show_backend_status,
     )
 
 configure_page("Discogs | Catálogo de vinilos")
 
-st.title("📥 Ficha de Discogs")
+render_icon_heading("Ficha de Discogs", icon="magnifying-glass", level=1)
 show_backend_status()
 
 query = st.text_input(
@@ -42,7 +46,7 @@ if query:
         except requests.HTTPError as exc:
             status_code = exc.response.status_code if exc.response is not None else None
             if status_code == 429:
-                st.error("🚦 Demasiadas peticiones a Discogs. Espera unos segundos.")
+                st.error("Demasiadas peticiones a Discogs. Espera unos segundos.")
             else:
                 st.error(f"Error consultando Discogs: {exc}")
             st.stop()
@@ -54,7 +58,7 @@ if query:
         st.warning("No se encontraron resultados.")
         st.stop()
 
-    st.subheader("Resultados")
+    render_icon_heading("Resultados", icon="list", level=2)
 
     for r in results:
         st.markdown("---")
@@ -64,7 +68,7 @@ if query:
             if r.get("thumb"):
                 st.image(r["thumb"], width=120)
             else:
-                st.write("📀")
+                render_empty_icon("record-vinyl", "Sin imagen")
 
         with c2:
             st.markdown(f"**{r['title']}**")
@@ -90,7 +94,7 @@ if "selected_release_id" in st.session_state:
         st.error(f"No se pudo cargar el release: {exc}")
         st.stop()
 
-    st.markdown(f"### {release_data.get('title')}")
+    render_icon_heading(str(release_data.get("title") or "Release"), icon="record-vinyl", level=3)
     st.caption(f"Discogs source ID: {release_id}")
 
     st.json(release_data)
@@ -98,7 +102,7 @@ if "selected_release_id" in st.session_state:
     # -------------------------
     # GUARDADO
     # -------------------------
-    st.markdown("### Guardar en vinilos_raw")
+    render_icon_heading("Guardar en vinilos_raw", icon="database", level=3)
 
     with st.form("guardar_form"):
         catalog_id = st.text_input("ID para tu catálogo")
@@ -126,7 +130,7 @@ if "selected_release_id" in st.session_state:
                         },
                         timeout=LONG_TIMEOUT_SECONDS,
                     )
-                    st.success("Vinilo guardado correctamente 🦆")
+                    st.success("Vinilo guardado correctamente")
             except requests.RequestException as exc:
                 st.error(f"No se pudo guardar el vinilo: {exc}")
 
@@ -137,7 +141,7 @@ if "selected_release_id" in st.session_state:
         data = st.session_state["confirm_overwrite"]
 
         st.warning(
-            f"⚠️ El ID **{data['id']}** ya existe\n\n"
+            f"El ID **{data['id']}** ya existe\n\n"
             f"**{data['info']}**\n\n"
             "¿Seguro que quieres sobrescribirlo?"
         )
@@ -160,7 +164,7 @@ if "selected_release_id" in st.session_state:
                         },
                         timeout=LONG_TIMEOUT_SECONDS,
                     )
-                    st.success("Vinilo sobrescrito 🦆")
+                    st.success("Vinilo sobrescrito")
                     st.session_state.pop("confirm_overwrite")
                 except requests.RequestException as exc:
                     st.error(f"No se pudo sobrescribir el vinilo: {exc}")

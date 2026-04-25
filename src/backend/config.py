@@ -13,7 +13,7 @@ def _resolve_path(env_name: str, default_relative: str) -> Path:
 
 
 DB_PATH = _resolve_path("DB_PATH", "data/vinilos.duckdb")
-EXPORTS_DIR = _resolve_path("EXPORTS_DIR", "exports")
+EXPORTS_DIR = _resolve_path("EXPORTS_DIR", "data/exports")
 
 DISCOGS_TOKEN = os.environ.get("DISCOGS_TOKEN")
 DISCOGS_USER_AGENT = os.getenv("DISCOGS_USER_AGENT", "MediaCatalogVinyls/0.1")

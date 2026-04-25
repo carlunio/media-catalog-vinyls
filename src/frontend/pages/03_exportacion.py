@@ -6,6 +6,7 @@ try:
         api_get,
         api_get_bytes,
         configure_page,
+        render_icon_heading,
         show_backend_status,
     )
 except ModuleNotFoundError:  # pragma: no cover
@@ -14,19 +15,20 @@ except ModuleNotFoundError:  # pragma: no cover
         api_get,
         api_get_bytes,
         configure_page,
+        render_icon_heading,
         show_backend_status,
     )
 
 configure_page("Exportación | Catálogo de vinilos")
 
-st.title("📤 Exportación")
+render_icon_heading("Exportación", icon="file-export", level=1)
 show_backend_status()
 
 st.markdown("""
 Exporta la tabla **vinilos** a un fichero **TXT tabulado (UTF-8)**.
 """)
 
-if st.button("📄 Exportar a TXT"):
+if st.button("Exportar a TXT"):
     with st.spinner("Generando archivo…"):
         try:
             result = api_get("/export/vinilos/txt", timeout=LONG_TIMEOUT_SECONDS)
@@ -49,7 +51,7 @@ download_bytes = st.session_state.get("vinilos_export_bytes")
 download_name = st.session_state.get("vinilos_export_filename", "vinilos.txt")
 if isinstance(download_bytes, (bytes, bytearray)):
     st.download_button(
-        label="⬇️ Descargar vinilos.txt",
+        label="Descargar vinilos.txt",
         data=bytes(download_bytes),
         file_name=str(download_name),
         mime="text/plain",

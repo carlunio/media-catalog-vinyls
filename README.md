@@ -62,5 +62,5 @@ Si más adelante quieres distinguir entornos paralelos, puedes usar opcionalment
 - `src/backend`: API, acceso a datos y lógica de negocio
 - `src/frontend`: interfaz de Streamlit
 - `data/`: base de datos DuckDB local
-- `exports/`: exportaciones generadas
+- `data/exports/`: exportaciones generadas
 - `docs/`: documentación Quarto

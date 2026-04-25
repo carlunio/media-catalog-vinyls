@@ -4,6 +4,9 @@
 - Definir flujo de releases estable para `main` y, si hace falta, canal paralelo `dev`.
 - Añadir más contexto de versión en UI y operación cuando exista política cerrada de publicación.
 
+### Changed
+- La carpeta de exportación pasa a ser `data/exports` en vez de `exports`, manteniendo el directorio versionado vacío con `.gitkeep`.
+
 
 ## [0.2.0] - 2026-04-25
 
