@@ -1,3 +1,4 @@
+from contextlib import closing
 import json
 from datetime import datetime
 
@@ -5,142 +6,154 @@ from ..database import get_connection
 from ..normalizers import normalizar_año
 
 
-# =========================
-# INIT
-# =========================
+class ViniloNotFoundError(ValueError):
+    pass
+
+
+def _join_names(items):
+    names = []
+    for item in items or []:
+        name = str((item or {}).get("name") or "").strip()
+        if name:
+            names.append(name)
+    return ", ".join(names)
+
+
+def _first_label_name(data):
+    labels = data.get("labels", []) or []
+    for label in labels:
+        name = str((label or {}).get("name") or "").strip()
+        if name:
+            return name
+    return None
+
+
+def _build_tracklist_text(data):
+    tracklist = []
+    for track in data.get("tracklist", []) or []:
+        pos = str((track or {}).get("position") or "").strip()
+        title = str((track or {}).get("title") or "").strip()
+        duration = str((track or {}).get("duration") or "").strip()
+
+        left = f"{pos} - {title}".strip(" -")
+        if duration:
+            left = f"{left} ({duration})"
+        if left:
+            tracklist.append(left)
+
+    return "\n".join(tracklist)
+
+
 def init_table():
-    con = get_connection()
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS vinilos (
-            id TEXT PRIMARY KEY,
-            tipo_articulo TEXT,
-            nombre TEXT,
-            artista TEXT,
-            año INTEGER,
-            sello TEXT,
-            pais TEXT,
-            duracion_total TEXT,
-            estimated_weight REAL,
-            generos TEXT,
-            estilos TEXT,
-            estado_conservacion TEXT,
-            menor_precio REAL,
-            precio REAL,
-            estado_carga TEXT,
-            estado_stock TEXT,
-            tracklist TEXT,
-            notas TEXT,
-            updated_at TIMESTAMP
-        )
-    """)
-    con.close()
-
-
-# =========================
-# FASE A: PREPARAR
-# =========================
-def preparar():
-    con = get_connection()
-
-    raws = con.execute("""
-        SELECT id, raw_json
-        FROM vinilos_raw
-        WHERE id NOT IN (SELECT id FROM vinilos)
-    """).fetchall()
-
-    nuevos = 0
-
-    for vid, raw_json in raws:
-        data = json.loads(raw_json)
-
-        artista = ", ".join(a.get("name") for a in data.get("artists", []))
-        año = normalizar_año(data.get("year"))
-
-        tracklist = []
-        for t in data.get("tracklist", []):
-            pos = t.get("position", "")
-            title = t.get("title", "")
-            dur = t.get("duration", "")
-            if dur:
-                tracklist.append(f"{pos} - {title} ({dur})")
-            else:
-                tracklist.append(f"{pos} - {title}")
-
+    with closing(get_connection()) as con:
         con.execute(
             """
-            INSERT INTO vinilos (
-                id, tipo_articulo, nombre, artista, año,
-                sello, pais, duracion_total, estimated_weight,
-                generos, estilos, menor_precio,
-                estado_carga, estado_stock,
-                tracklist, notas, updated_at
+            CREATE TABLE IF NOT EXISTS vinilos (
+                id TEXT PRIMARY KEY,
+                tipo_articulo TEXT,
+                nombre TEXT,
+                artista TEXT,
+                año INTEGER,
+                sello TEXT,
+                pais TEXT,
+                duracion_total TEXT,
+                estimated_weight REAL,
+                generos TEXT,
+                estilos TEXT,
+                estado_conservacion TEXT,
+                menor_precio REAL,
+                precio REAL,
+                estado_carga TEXT,
+                estado_stock TEXT,
+                tracklist TEXT,
+                notas TEXT,
+                updated_at TIMESTAMP
             )
-            VALUES (
-                ?, 'Vinilo', ?, ?, ?,
-                ?, ?, ?, ?,
-                ?, ?, ?,
-                'Para subir', 'En stock',
-                ?, ?, ?
-            )
-        """,
-            (
-                vid,
-                data.get("title"),
-                artista,
-                año,
-                data.get("labels", [{}])[0].get("name"),
-                data.get("country"),
-                None,
-                data.get("estimated_weight"),
-                ", ".join(data.get("genres", [])),
-                ", ".join(data.get("styles", [])),
-                data.get("lowest_price"),
-                "\n".join(tracklist),
-                data.get("notes"),
-                datetime.now(),
-            ),
+            """
         )
 
-        nuevos += 1
 
-    con.close()
+def preparar():
+    with closing(get_connection()) as con:
+        raws = con.execute(
+            """
+            SELECT id, raw_json
+            FROM vinilos_raw
+            WHERE id NOT IN (SELECT id FROM vinilos)
+            """
+        ).fetchall()
+
+        nuevos = 0
+        for vid, raw_json in raws:
+            data = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
+
+            con.execute(
+                """
+                INSERT INTO vinilos (
+                    id, tipo_articulo, nombre, artista, año,
+                    sello, pais, duracion_total, estimated_weight,
+                    generos, estilos, menor_precio,
+                    estado_carga, estado_stock,
+                    tracklist, notas, updated_at
+                )
+                VALUES (
+                    ?, 'Vinilo', ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?, ?,
+                    'Para subir', 'En stock',
+                    ?, ?, ?
+                )
+                """,
+                (
+                    vid,
+                    data.get("title"),
+                    _join_names(data.get("artists", [])),
+                    normalizar_año(data.get("year")),
+                    _first_label_name(data),
+                    data.get("country"),
+                    None,
+                    data.get("estimated_weight"),
+                    ", ".join(str(item).strip() for item in data.get("genres", []) if str(item).strip()),
+                    ", ".join(str(item).strip() for item in data.get("styles", []) if str(item).strip()),
+                    data.get("lowest_price"),
+                    _build_tracklist_text(data),
+                    data.get("notes"),
+                    datetime.now(),
+                ),
+            )
+            nuevos += 1
+
     return nuevos
 
 
-# =========================
-# LISTAR
-# =========================
 def list_all():
-    con = get_connection()
-    rows = con.execute("""
-        SELECT id, nombre
-        FROM vinilos
-        ORDER BY id
-    """).fetchall()
-    con.close()
+    with closing(get_connection()) as con:
+        rows = con.execute(
+            """
+            SELECT id, nombre
+            FROM vinilos
+            ORDER BY id
+            """
+        ).fetchall()
 
     return [{"id": r[0], "nombre": r[1]} for r in rows]
 
 
-# =========================
-# OBTENER UNO
-# =========================
 def get_one(id_):
-    con = get_connection()
-    row = con.execute(
-        """
-        SELECT
-            id, tipo_articulo, nombre, artista, año,
-            sello, pais, duracion_total, estimated_weight,
-            generos, estilos,
-            estado_conservacion, menor_precio, precio,
-            estado_carga, estado_stock, tracklist, notas
-        FROM vinilos
-        WHERE id = ?
-    """,
-        (id_,),
-    ).fetchone()
-    con.close()
+    with closing(get_connection()) as con:
+        row = con.execute(
+            """
+            SELECT
+                id, tipo_articulo, nombre, artista, año,
+                sello, pais, duracion_total, estimated_weight,
+                generos, estilos,
+                estado_conservacion, menor_precio, precio,
+                estado_carga, estado_stock, tracklist, notas
+            FROM vinilos
+            WHERE id = ?
+            """,
+            (id_,),
+        ).fetchone()
 
     if not row:
         return None
@@ -167,80 +180,72 @@ def get_one(id_):
     }
 
 
-# =========================
-# Consulta de toda la tabla
-# =========================
-
-
 def list_all_full():
-    con = get_connection()
-
-    rows = con.execute("""
-        SELECT *
-        FROM vinilos
-        ORDER BY nombre
-    """).fetchall()
-
-    cols = [
-        d[1]  # ← nombre de columna, NO cid
-        for d in con.execute("PRAGMA table_info(vinilos)").fetchall()
-    ]
-
-    con.close()
+    with closing(get_connection()) as con:
+        rows = con.execute(
+            """
+            SELECT *
+            FROM vinilos
+            ORDER BY nombre
+            """
+        ).fetchall()
+        cols = [d[1] for d in con.execute("PRAGMA table_info(vinilos)").fetchall()]
 
     return [dict(zip(cols, row)) for row in rows]
 
 
-
-# =========================
-# ACTUALIZAR
-# =========================
 def update(id_, data: dict):
-    con = get_connection()
+    with closing(get_connection()) as con:
+        exists = con.execute(
+            "SELECT 1 FROM vinilos WHERE id = ? LIMIT 1",
+            (id_,),
+        ).fetchone()
+        if not exists:
+            raise ViniloNotFoundError(f"El vinilo {id_} no existe")
 
-    con.execute(
-        """
-        UPDATE vinilos
-        SET
-            tipo_articulo = ?,
-            nombre = ?,
-            artista = ?,
-            año = ?,
-            sello = ?,
-            pais = ?,
-            duracion_total = ?,
-            estimated_weight = ?,
-            generos = ?,
-            estilos = ?,
-            tracklist = ?,
-            estado_conservacion = ?,
-            precio = ?,
-            estado_carga = ?,
-            estado_stock = ?,
-            notas = ?,
-            updated_at = ?
-        WHERE id = ?
-    """,
-        (
-            data.get("tipo_articulo"),
-            data.get("nombre"),
-            data.get("artista"),
-            normalizar_año(data.get("año")),
-            data.get("sello"),
-            data.get("pais"),
-            data.get("duracion_total"),
-            data.get("estimated_weight"),
-            data.get("generos"),
-            data.get("estilos"),
-            data.get("tracklist"),
-            data.get("estado_conservacion"),
-            data.get("precio"),
-            data.get("estado_carga"),
-            data.get("estado_stock"),
-            data.get("notas"),
-            datetime.now(),
-            id_,
-        ),
-    )
+        con.execute(
+            """
+            UPDATE vinilos
+            SET
+                tipo_articulo = ?,
+                nombre = ?,
+                artista = ?,
+                año = ?,
+                sello = ?,
+                pais = ?,
+                duracion_total = ?,
+                estimated_weight = ?,
+                generos = ?,
+                estilos = ?,
+                tracklist = ?,
+                estado_conservacion = ?,
+                precio = ?,
+                estado_carga = ?,
+                estado_stock = ?,
+                notas = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                data["tipo_articulo"],
+                data["nombre"],
+                data["artista"],
+                normalizar_año(data["año"]),
+                data["sello"],
+                data["pais"],
+                data["duracion_total"],
+                data["estimated_weight"],
+                data["generos"],
+                data["estilos"],
+                data["tracklist"],
+                data["estado_conservacion"],
+                data["precio"],
+                data["estado_carga"],
+                data["estado_stock"],
+                data["notas"],
+                datetime.now(),
+                id_,
+            ),
+        )
 
-    con.close()
+    return get_one(id_)
