@@ -1,10 +1,27 @@
 import streamlit as st
 import requests
-import json
 
-API_URL = "http://127.0.0.1:8000"
+try:
+    from src.frontend.utils import (
+        LONG_TIMEOUT_SECONDS,
+        api_get,
+        api_post,
+        configure_page,
+        show_backend_status,
+    )
+except ModuleNotFoundError:  # pragma: no cover
+    from frontend.utils import (
+        LONG_TIMEOUT_SECONDS,
+        api_get,
+        api_post,
+        configure_page,
+        show_backend_status,
+    )
+
+configure_page("Discogs | Catálogo de vinilos")
 
 st.title("📥 Ficha de Discogs")
+show_backend_status()
 
 query = st.text_input(
     "Buscar en Discogs",
@@ -16,18 +33,22 @@ query = st.text_input(
 # -------------------------
 if query:
     with st.spinner("Buscando en Discogs…"):
-        resp = requests.get(
-            f"{API_URL}/discogs/search",
-            params={"q": query},
-            timeout=10
-        )
-
-        if resp.status_code == 429:
-            st.error("🚦 Demasiadas peticiones a Discogs. Espera unos segundos.")
+        try:
+            results = api_get(
+                "/discogs/search",
+                params={"q": query},
+                timeout=LONG_TIMEOUT_SECONDS,
+            )
+        except requests.HTTPError as exc:
+            status_code = exc.response.status_code if exc.response is not None else None
+            if status_code == 429:
+                st.error("🚦 Demasiadas peticiones a Discogs. Espera unos segundos.")
+            else:
+                st.error(f"Error consultando Discogs: {exc}")
             st.stop()
-
-        resp.raise_for_status()
-        results = resp.json()
+        except requests.RequestException as exc:
+            st.error(f"No se pudo conectar con el backend: {exc}")
+            st.stop()
 
     if not results:
         st.warning("No se encontraron resultados.")
@@ -60,12 +81,14 @@ if "selected_release_id" in st.session_state:
     st.divider()
     release_id = st.session_state["selected_release_id"]
 
-    resp = requests.get(
-        f"{API_URL}/discogs/release/{release_id}",
-        timeout=10
-    )
-    resp.raise_for_status()
-    release_data = resp.json()
+    try:
+        release_data = api_get(
+            f"/discogs/release/{release_id}",
+            timeout=LONG_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException as exc:
+        st.error(f"No se pudo cargar el release: {exc}")
+        st.stop()
 
     st.markdown(f"### {release_data.get('title')}")
     st.caption(f"Discogs source ID: {release_id}")
@@ -85,33 +108,27 @@ if "selected_release_id" in st.session_state:
         if not catalog_id:
             st.error("Debes introducir un ID")
         else:
-            exists_resp = requests.get(
-                f"{API_URL}/vinilos_raw/exists/{catalog_id}"
-            )
-            exists_resp.raise_for_status()
-            exists = exists_resp.json()["exists"]
-
-            if exists:
-                info_resp = requests.get(
-                    f"{API_URL}/vinilos_raw/info/{catalog_id}"
-                )
-                info_resp.raise_for_status()
-
-                st.session_state["confirm_overwrite"] = {
-                    "id": catalog_id,
-                    "info": info_resp.json()["info"]
-                }
-            else:
-                requests.post(
-                    f"{API_URL}/vinilos_raw",
-                    json={
+            try:
+                exists = api_get(f"/vinilos_raw/exists/{catalog_id}")["exists"]
+                if exists:
+                    info = api_get(f"/vinilos_raw/info/{catalog_id}")["info"]
+                    st.session_state["confirm_overwrite"] = {
                         "id": catalog_id,
-                        "data": release_data,
-                        "overwrite": False
-                        }
-                        )
-
-                st.success("Vinilo guardado correctamente 🦆")
+                        "info": info,
+                    }
+                else:
+                    api_post(
+                        "/vinilos_raw",
+                        json={
+                            "id": catalog_id,
+                            "data": release_data,
+                            "overwrite": False,
+                        },
+                        timeout=LONG_TIMEOUT_SECONDS,
+                    )
+                    st.success("Vinilo guardado correctamente 🦆")
+            except requests.RequestException as exc:
+                st.error(f"No se pudo guardar el vinilo: {exc}")
 
     # -------------------------
     # CONFIRMACIÓN OVERWRITE
@@ -133,10 +150,17 @@ if "selected_release_id" in st.session_state:
 
         with c2:
             if st.button("Sobrescribir"):
-                requests.post(
-                    f"{API_URL}/vinilos_raw",
-                    params={"id": data['id'], "overwrite": True},
-                    json=release_data
-                )
-                st.success("Vinilo sobrescrito 🦆")
-                st.session_state.pop("confirm_overwrite")
+                try:
+                    api_post(
+                        "/vinilos_raw",
+                        json={
+                            "id": data["id"],
+                            "data": release_data,
+                            "overwrite": True,
+                        },
+                        timeout=LONG_TIMEOUT_SECONDS,
+                    )
+                    st.success("Vinilo sobrescrito 🦆")
+                    st.session_state.pop("confirm_overwrite")
+                except requests.RequestException as exc:
+                    st.error(f"No se pudo sobrescribir el vinilo: {exc}")

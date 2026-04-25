@@ -1,11 +1,26 @@
-from pathlib import Path
-
-import requests
 import streamlit as st
 
-API_URL = "http://127.0.0.1:8000"
+try:
+    from src.frontend.utils import (
+        LONG_TIMEOUT_SECONDS,
+        api_get,
+        api_get_bytes,
+        configure_page,
+        show_backend_status,
+    )
+except ModuleNotFoundError:  # pragma: no cover
+    from frontend.utils import (
+        LONG_TIMEOUT_SECONDS,
+        api_get,
+        api_get_bytes,
+        configure_page,
+        show_backend_status,
+    )
+
+configure_page("Exportación | Catálogo de vinilos")
 
 st.title("📤 Exportación")
+show_backend_status()
 
 st.markdown("""
 Exporta la tabla **vinilos** a un fichero **TXT tabulado (UTF-8)**.
@@ -13,18 +28,29 @@ Exporta la tabla **vinilos** a un fichero **TXT tabulado (UTF-8)**.
 
 if st.button("📄 Exportar a TXT"):
     with st.spinner("Generando archivo…"):
-        resp = requests.get(f"{API_URL}/export/vinilos/txt")
-        resp.raise_for_status()
+        try:
+            result = api_get("/export/vinilos/txt", timeout=LONG_TIMEOUT_SECONDS)
+            filename = str(result.get("filename") or "vinilos.txt")
+            file_bytes = api_get_bytes(
+                "/export/vinilos/file",
+                params={"filename": filename},
+                timeout=LONG_TIMEOUT_SECONDS,
+            )
+            st.session_state["vinilos_export_bytes"] = file_bytes
+            st.session_state["vinilos_export_filename"] = filename
+            st.success(
+                f"Exportación completada: {result.get('path')} "
+                f"({int(result.get('rows') or 0)} filas)"
+            )
+        except Exception as exc:
+            st.error(f"No se pudo exportar el catálogo: {exc}")
 
-    path = resp.json()["path"]
-    file_path = Path(path)
-
-    if file_path.exists():
-        st.success("Exportación completada")
-
-        st.download_button(
-            label="⬇️ Descargar vinilos.txt",
-            data=file_path.read_text(encoding="utf-8"),
-            file_name="vinilos.txt",
-            mime="text/plain",
-        )
+download_bytes = st.session_state.get("vinilos_export_bytes")
+download_name = st.session_state.get("vinilos_export_filename", "vinilos.txt")
+if isinstance(download_bytes, (bytes, bytearray)):
+    st.download_button(
+        label="⬇️ Descargar vinilos.txt",
+        data=bytes(download_bytes),
+        file_name=str(download_name),
+        mime="text/plain",
+    )

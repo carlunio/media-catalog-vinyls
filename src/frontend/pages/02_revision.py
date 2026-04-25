@@ -1,46 +1,47 @@
 import streamlit as st
-import requests
-from datetime import datetime
 
-API_URL = "http://127.0.0.1:8000"
+try:
+    from src.backend.normalizers import normalizar_año
+except ModuleNotFoundError:  # pragma: no cover
+    from backend.normalizers import normalizar_año
 
-# =========================
-# NORMALIZADORES
-# =========================
-def normalizar_año(valor):
-    if valor is None:
-        return None
-    if isinstance(valor, int):
-        return valor
-    if isinstance(valor, str):
-        valor = valor.strip()
-        if len(valor) >= 4 and valor[:4].isdigit():
-            return int(valor[:4])
-    return None
+try:
+    from src.frontend.utils import api_get, api_post, api_put, configure_page, show_backend_status
+except ModuleNotFoundError:  # pragma: no cover
+    from frontend.utils import api_get, api_post, api_put, configure_page, show_backend_status
+
+configure_page("Revisión | Catálogo de vinilos")
 
 
-# =========================
-# UI
-# =========================
+def _safe_index(options, value, default=0):
+    try:
+        return options.index(value)
+    except ValueError:
+        return default
+
+
 st.title("📝 Revisión y edición de vinilos")
+show_backend_status()
 
-# ---------- FASE A ----------
 st.subheader("1️⃣ Preparación automática")
 
 if st.button("Preparar fichas desde vinilos_raw"):
-    resp = requests.post(f"{API_URL}/vinilos/preparar")
-    resp.raise_for_status()
-    n = resp.json()["creados"]
-    st.success(f"Se han creado {n} fichas nuevas en vinilos")
+    try:
+        result = api_post("/vinilos/preparar")
+        n = result["creados"]
+        st.success(f"Se han creado {n} fichas nuevas en vinilos")
+    except Exception as exc:
+        st.error(f"No se pudieron preparar las fichas: {exc}")
 
 st.divider()
 
-# ---------- FASE B ----------
 st.subheader("2️⃣ Revisión manual")
 
-resp = requests.get(f"{API_URL}/vinilos")
-resp.raise_for_status()
-rows = resp.json()
+try:
+    rows = api_get("/vinilos")
+except Exception as exc:
+    st.error(f"No se pudo cargar el listado de vinilos: {exc}")
+    st.stop()
 
 if not rows:
     st.info("No hay vinilos para revisar")
@@ -51,6 +52,8 @@ total = len(id_list)
 
 if "vinilo_idx" not in st.session_state:
     st.session_state["vinilo_idx"] = 0
+else:
+    st.session_state["vinilo_idx"] = max(0, min(st.session_state["vinilo_idx"], total - 1))
 
 selected_id = st.selectbox(
     "Selecciona un vinilo",
@@ -74,33 +77,33 @@ with nav_r:
         st.session_state["vinilo_idx"] += 1
         st.rerun()
 
-# ---------- CARGA DE DATOS ----------
-resp = requests.get(f"{API_URL}/vinilos/{selected_id}")
-resp.raise_for_status()
-data = resp.json()
+try:
+    data = api_get(f"/vinilos/{selected_id}")
+except Exception as exc:
+    st.error(f"No se pudo cargar la ficha {selected_id}: {exc}")
+    st.stop()
 
-# ---------- FORMULARIO ----------
 with st.form("form_revision"):
     st.markdown(f"### Vinilo: `{selected_id}`")
 
-    # ---------- FILA 1 ----------
     c1, c2, c3 = st.columns(3)
     with c1:
         tipo_articulo = st.text_input("Tipo de artículo", data["tipo_articulo"])
     with c2:
+        estado_carga_options = ["Para subir", "Para actualizar", "Subido"]
         estado_carga = st.selectbox(
             "Estado de carga",
-            ["Para subir", "Para actualizar", "Subido"],
-            index=["Para subir", "Para actualizar", "Subido"].index(data["estado_carga"])
+            estado_carga_options,
+            index=_safe_index(estado_carga_options, data["estado_carga"]),
         )
     with c3:
+        estado_stock_options = ["En stock", "Vendido", "Extraviado"]
         estado_stock = st.selectbox(
             "Estado de stock",
-            ["En stock", "Vendido", "Extraviado"],
-            index=["En stock", "Vendido", "Extraviado"].index(data["estado_stock"])
+            estado_stock_options,
+            index=_safe_index(estado_stock_options, data["estado_stock"]),
         )
 
-    # ---------- FILA 2 ----------
     c4, c5, c6 = st.columns([2, 1, 1])
     with c4:
         nombre = st.text_input("Nombre", data["nombre"] or "")
@@ -114,7 +117,6 @@ with st.form("form_revision"):
     with c6:
         pais = st.text_input("País", data["pais"] or "")
 
-    # ---------- FILA 3 ----------
     c7, c8, c9 = st.columns([2, 1, 1])
     with c7:
         artista = st.text_input("Artista", data["artista"] or "")
@@ -123,7 +125,6 @@ with st.form("form_revision"):
     with c9:
         estilos = st.text_input("Estilos", data["estilos"] or "")
 
-    # ---------- FILA 4 ----------
     c10, c11, c12 = st.columns([3, 1, 1])
     with c10:
         sello = st.text_input("Sello", data["sello"] or "")
@@ -137,23 +138,31 @@ with st.form("form_revision"):
             min_value=0
         )
 
-    # ---------- FILA 5 ----------
     c13, c14 = st.columns(2)
     with c13:
         tracklist = st.text_area("Tracklist", data["tracklist"] or "", height=200)
     with c14:
         notas = st.text_area("Notas", data["notas"] or "", height=200)
 
-    # ---------- FILA 6 ----------
     c15, c16, c17 = st.columns([1, 1, 2])
 
     with c15:
+        estado_conservacion_options = [
+            "",
+            "Aceptable",
+            "Bueno",
+            "Muy bueno",
+            "Excelente",
+            "Como nuevo",
+        ]
         estado_conservacion = st.selectbox(
             "Estado conservación",
-            ["", "Aceptable", "Bueno", "Muy bueno", "Excelente", "Como nuevo"],
-            index=0 if not data["estado_conservacion"] else
-            ["", "Aceptable", "Bueno", "Muy bueno", "Excelente", "Como nuevo"]
-            .index(data["estado_conservacion"])
+            estado_conservacion_options,
+            index=_safe_index(
+                estado_conservacion_options,
+                data["estado_conservacion"],
+                default=0,
+            ),
         )
 
     with c16:
@@ -178,7 +187,7 @@ with st.form("form_revision"):
             "tipo_articulo": tipo_articulo,
             "nombre": nombre,
             "artista": artista,
-            "año": normalizar_año(año),
+            "año": normalizar_año(año) if año else None,
             "sello": sello,
             "pais": pais,
             "duracion_total": duracion_total,
@@ -191,12 +200,10 @@ with st.form("form_revision"):
             "estado_carga": estado_carga,
             "estado_stock": estado_stock,
             "notas": notas,
-            "updated_at": datetime.now().isoformat()
         }
 
-        requests.put(
-            f"{API_URL}/vinilos/{selected_id}",
-            json=payload
-        )
-
-        st.success("Ficha actualizada correctamente")
+        try:
+            api_put(f"/vinilos/{selected_id}", json=payload)
+            st.success("Ficha actualizada correctamente")
+        except Exception as exc:
+            st.error(f"No se pudo actualizar la ficha: {exc}")
