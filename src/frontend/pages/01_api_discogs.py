@@ -9,7 +9,7 @@ try:
         configure_page,
         render_empty_icon,
         render_icon_heading,
-        show_backend_status,
+        render_nested_data_tree,
     )
 except ModuleNotFoundError:  # pragma: no cover
     from frontend.utils import (
@@ -19,13 +19,46 @@ except ModuleNotFoundError:  # pragma: no cover
         configure_page,
         render_empty_icon,
         render_icon_heading,
-        show_backend_status,
+        render_nested_data_tree,
     )
 
 configure_page("Discogs | Catálogo de vinilos")
 
 render_icon_heading("Ficha de Discogs", icon="magnifying-glass", level=1)
-show_backend_status()
+
+
+def _show_discogs_http_error(exc, *, fallback_prefix):
+    response = exc.response
+    if response is None:
+        st.error(f"{fallback_prefix}: {exc}")
+        return
+
+    detail = None
+    try:
+        payload = response.json()
+        if isinstance(payload, dict):
+            detail = payload.get("detail")
+    except ValueError:
+        detail = None
+
+    if isinstance(detail, dict):
+        title = str(detail.get("title") or "Error en Discogs").strip()
+        message = str(detail.get("message") or fallback_prefix).strip()
+        hint = str(detail.get("hint") or "").strip()
+        upstream_message = str(detail.get("upstream_message") or "").strip()
+
+        st.error(f"{title}: {message}")
+        if hint:
+            st.caption(hint)
+        if upstream_message and upstream_message != message:
+            st.caption(f"Detalle técnico: {upstream_message}")
+        return
+
+    if isinstance(detail, str) and detail.strip():
+        st.error(detail.strip())
+        return
+
+    st.error(f"{fallback_prefix}: HTTP {response.status_code}")
 
 query = st.text_input(
     "Buscar en Discogs",
@@ -44,11 +77,7 @@ if query:
                 timeout=LONG_TIMEOUT_SECONDS,
             )
         except requests.HTTPError as exc:
-            status_code = exc.response.status_code if exc.response is not None else None
-            if status_code == 429:
-                st.error("Demasiadas peticiones a Discogs. Espera unos segundos.")
-            else:
-                st.error(f"Error consultando Discogs: {exc}")
+            _show_discogs_http_error(exc, fallback_prefix="No se pudo completar la búsqueda en Discogs")
             st.stop()
         except requests.RequestException as exc:
             st.error(f"No se pudo conectar con el backend: {exc}")
@@ -76,6 +105,7 @@ if query:
 
             if st.button("Seleccionar este release", key=f"sel_{r['id']}"):
                 st.session_state["selected_release_id"] = r["id"]
+                st.session_state["discogs_release_tree_expand_all"] = False
                 st.session_state.pop("confirm_overwrite", None)
 
 # -------------------------
@@ -90,6 +120,9 @@ if "selected_release_id" in st.session_state:
             f"/discogs/release/{release_id}",
             timeout=LONG_TIMEOUT_SECONDS,
         )
+    except requests.HTTPError as exc:
+        _show_discogs_http_error(exc, fallback_prefix="No se pudo cargar el release desde Discogs")
+        st.stop()
     except requests.RequestException as exc:
         st.error(f"No se pudo cargar el release: {exc}")
         st.stop()
@@ -97,7 +130,7 @@ if "selected_release_id" in st.session_state:
     render_icon_heading(str(release_data.get("title") or "Release"), icon="record-vinyl", level=3)
     st.caption(f"Discogs source ID: {release_id}")
 
-    st.json(release_data)
+    render_nested_data_tree(release_data, state_key="discogs_release_tree")
 
     # -------------------------
     # GUARDADO

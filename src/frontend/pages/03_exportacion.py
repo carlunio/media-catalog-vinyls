@@ -7,7 +7,6 @@ try:
         api_get_bytes,
         configure_page,
         render_icon_heading,
-        show_backend_status,
     )
 except ModuleNotFoundError:  # pragma: no cover
     from frontend.utils import (
@@ -16,13 +15,11 @@ except ModuleNotFoundError:  # pragma: no cover
         api_get_bytes,
         configure_page,
         render_icon_heading,
-        show_backend_status,
     )
 
 configure_page("Exportación | Catálogo de vinilos")
 
 render_icon_heading("Exportación", icon="file-export", level=1)
-show_backend_status()
 
 st.markdown("""
 Exporta la tabla **vinilos** a un fichero **TXT tabulado (UTF-8)**.

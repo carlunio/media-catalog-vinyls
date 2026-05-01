@@ -39,9 +39,19 @@ make stop
 make restart
 make update-repo
 make update
+make db-maint
+make db-repack
+make db-repack-replace
 make lint
 make test
 ```
+
+Notas:
+
+- `make db-maint` ejecuta `CHECKPOINT` + `VACUUM` sobre la base actual.
+- `make db-repack` genera una copia recompuesta más compacta como `*.repacked.duckdb`.
+- `make db-repack-replace` sustituye la base activa por la recompuesta y guarda una copia `*.pre_repack.bak.duckdb`.
+- Conviene parar backend y frontend antes de usar `db-repack-replace`.
 
 ## Versionado
 

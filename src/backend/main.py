@@ -1,9 +1,11 @@
 import logging
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
+import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
+from discogs_client.exceptions import AuthorizationError, HTTPError as DiscogsHTTPError
 
 from src.project_meta import get_app_meta
 
@@ -25,16 +27,114 @@ vinilos_raw.init_table()
 vinilos.init_table()
 
 
+def _discogs_error_detail(status_code: int, upstream_message: str | None = None) -> dict[str, Any]:
+    base: dict[int, dict[str, str]] = {
+        400: {
+            "title": "Solicitud no válida a Discogs",
+            "message": "Discogs no ha aceptado la búsqueda o alguno de sus parámetros.",
+            "hint": "Prueba con una búsqueda más simple o revisa que el valor enviado tenga sentido.",
+        },
+        401: {
+            "title": "Autenticación rechazada por Discogs",
+            "message": "Discogs no ha aceptado las credenciales de la aplicación.",
+            "hint": "Revisa `DISCOGS_TOKEN` y confirma que siga siendo válido.",
+        },
+        403: {
+            "title": "Acceso denegado por Discogs",
+            "message": "Discogs ha rechazado la petición aunque la autenticación exista.",
+            "hint": "Puede deberse a restricciones del recurso, permisos insuficientes o bloqueo temporal.",
+        },
+        404: {
+            "title": "Recurso no encontrado en Discogs",
+            "message": "Discogs no ha encontrado el release o recurso solicitado.",
+            "hint": "Prueba con otro resultado de búsqueda o vuelve a lanzar la consulta.",
+        },
+        405: {
+            "title": "Método no permitido en Discogs",
+            "message": "Discogs ha rechazado el tipo de petición enviado.",
+            "hint": "Es un problema técnico del cliente; conviene revisar la integración.",
+        },
+        422: {
+            "title": "Discogs no pudo procesar la petición",
+            "message": "Discogs ha recibido la solicitud pero no puede interpretarla correctamente.",
+            "hint": "Suele deberse a parámetros inconsistentes o formatos no aceptados por la API.",
+        },
+        429: {
+            "title": "Límite de peticiones alcanzado en Discogs",
+            "message": "Discogs está limitando temporalmente las consultas de la aplicación.",
+            "hint": "Espera unos segundos y vuelve a intentarlo para evitar el rate limit.",
+        },
+        500: {
+            "title": "Error interno en Discogs",
+            "message": "Discogs ha devuelto un error interno al procesar la petición.",
+            "hint": "Lo mejor es reintentar más tarde; el problema parece estar del lado de Discogs.",
+        },
+        502: {
+            "title": "Respuesta inválida desde Discogs",
+            "message": "Discogs ha respondido de forma inesperada o incompleta.",
+            "hint": "Reintenta la consulta y, si persiste, conviene revisar el estado del servicio.",
+        },
+        503: {
+            "title": "Discogs no está disponible",
+            "message": "Discogs no puede atender la petición en este momento.",
+            "hint": "Puede ser una caída temporal o mantenimiento; conviene intentarlo más tarde.",
+        },
+        504: {
+            "title": "Tiempo de espera agotado en Discogs",
+            "message": "Discogs ha tardado demasiado en responder.",
+            "hint": "Vuelve a intentarlo en unos segundos o con una consulta más acotada.",
+        },
+    }
+    detail = dict(
+        base.get(
+            status_code,
+            {
+                "title": "Error desconocido en Discogs",
+                "message": "Discogs ha devuelto una respuesta no prevista por la aplicación.",
+                "hint": "Conviene reintentar la operación y revisar el detalle técnico si persiste.",
+            },
+        )
+    )
+    detail["status_code"] = int(status_code)
+    if upstream_message:
+        detail["upstream_message"] = upstream_message
+    return detail
+
+
 def _raise_discogs_error(exc: Exception) -> None:
     if isinstance(exc, DiscogsClientConfigurationError):
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "title": "Discogs no está configurado",
+                "message": "La aplicación no puede usar Discogs porque falta su configuración.",
+                "hint": "Revisa `DISCOGS_TOKEN` antes de volver a intentarlo.",
+                "status_code": 503,
+                "upstream_message": str(exc),
+            },
+        ) from exc
+
+    if isinstance(exc, (DiscogsHTTPError, AuthorizationError)):
+        status_code = int(getattr(exc, "status_code", 502) or 502)
+        raise HTTPException(
+            status_code=status_code,
+            detail=_discogs_error_detail(status_code, str(exc).strip() or None),
+        ) from exc
+
+    if isinstance(exc, requests.Timeout):
+        raise HTTPException(
+            status_code=504,
+            detail=_discogs_error_detail(504, str(exc).strip() or None),
+        ) from exc
+
+    if isinstance(exc, requests.RequestException):
+        raise HTTPException(
+            status_code=503,
+            detail=_discogs_error_detail(503, str(exc).strip() or None),
+        ) from exc
 
     message = str(exc).strip() or exc.__class__.__name__
-    lowered = message.lower()
-    if "429" in lowered or "rate limit" in lowered or "too many requests" in lowered:
-        raise HTTPException(status_code=429, detail=message) from exc
-
-    raise HTTPException(status_code=502, detail=message) from exc
+    raise HTTPException(status_code=502, detail=_discogs_error_detail(502, message)) from exc
 
 
 @app.get("/health")
@@ -98,6 +198,11 @@ def preparar_vinilos():
 @app.get("/vinilos", response_model=List[ViniloListItem])
 def list_vinilos():
     return vinilos.list_all()
+
+
+@app.get("/vinilos/options")
+def vinilos_options():
+    return {"allowed_values": vinilos.get_vinilos_allowed_values()}
 
 
 @app.get("/vinilos/{id_}", response_model=ViniloOut)

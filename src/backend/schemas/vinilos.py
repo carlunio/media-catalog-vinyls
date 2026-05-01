@@ -18,7 +18,9 @@ class ViniloUpdateRequest(BaseModel):
     generos: str | None
     estilos: str | None
     tracklist: str | None
-    estado_conservacion: str | None
+    estado_disco: str | None
+    estado_funda: str | None
+    comentarios_estado: str | None
     precio: int | float | None
     estado_carga: str | None
     estado_stock: str | None
@@ -37,10 +39,13 @@ class ViniloOut(BaseModel):
     estimated_weight: float | None = None
     generos: str | None = None
     estilos: str | None = None
-    estado_conservacion: str | None = None
+    estado_disco: str | None = None
+    estado_funda: str | None = None
+    comentarios_estado: str | None = None
     menor_precio: float | None = None
     precio: float | None = None
     estado_carga: str | None = None
     estado_stock: str | None = None
     tracklist: str | None = None
     notas: str | None = None
+    discogs_image_url: str | None = None

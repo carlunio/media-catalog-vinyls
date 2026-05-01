@@ -46,8 +46,10 @@ endif
 
 BACKEND_APP := src.backend.main:app
 FRONTEND_APP := $(MAKEFILE_DIR)/src/frontend/app.py
+DB_MAINT_SCRIPT := $(MAKEFILE_DIR)/scripts/db_maintenance.py
 GIT_REMOTE ?= origin
 GIT_BRANCH ?= main
+DB_PATH ?= data/vinilos.duckdb
 
 # =========================
 # PORTS
@@ -58,7 +60,7 @@ FRONT_PORT ?= 8501
 # =========================
 # PHONY
 # =========================
-.PHONY: setup install update-repo update ensure-env dev-back dev-front dev stop stop-back stop-front restart clean lint format test
+.PHONY: setup install update-repo update ensure-env db-maint db-repack db-repack-replace dev-back dev-front dev stop stop-back stop-front restart clean lint format test
 
 setup:
 	$(PYTHON_BOOTSTRAP) -m venv $(VENV)
@@ -78,6 +80,15 @@ update: update-repo
 ensure-env:
 	@$(PYTHON_BOOTSTRAP) -c "import pathlib, sys; sys.exit(0 if pathlib.Path(r'$(PYTHON)').exists() else 1)" || $(MAKE) setup
 	@$(PYTHON) -c "import importlib.util, sys; mods=('uvicorn','streamlit','fastapi'); sys.exit(0 if all(importlib.util.find_spec(m) for m in mods) else 1)" || $(MAKE) install
+
+db-maint: ensure-env
+	$(PYTHON) $(DB_MAINT_SCRIPT) --db $(DB_PATH)
+
+db-repack: ensure-env
+	$(PYTHON) $(DB_MAINT_SCRIPT) --db $(DB_PATH) --repack
+
+db-repack-replace: ensure-env
+	$(PYTHON) $(DB_MAINT_SCRIPT) --db $(DB_PATH) --repack --replace
 
 dev-back:
 ifneq ($(SKIP_ENSURE),1)
