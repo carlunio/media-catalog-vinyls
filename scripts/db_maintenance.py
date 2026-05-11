@@ -16,8 +16,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="DuckDB maintenance for media-catalog-vinyls")
     parser.add_argument(
         "--db",
-        default="data/vinilos.duckdb",
-        help="Path to DuckDB file (default: data/vinilos.duckdb)",
+        default="data/vinyls.duckdb",
+        help="Path to DuckDB file (default: data/vinyls.duckdb)",
     )
     parser.add_argument(
         "--repack",

@@ -49,7 +49,7 @@ FRONTEND_APP := $(MAKEFILE_DIR)/src/frontend/app.py
 DB_MAINT_SCRIPT := $(MAKEFILE_DIR)/scripts/db_maintenance.py
 GIT_REMOTE ?= origin
 GIT_BRANCH ?= main
-DB_PATH ?= data/vinilos.duckdb
+DB_PATH ?= data/vinyls.duckdb
 
 # =========================
 # PORTS

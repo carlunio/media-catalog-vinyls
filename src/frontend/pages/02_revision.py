@@ -174,7 +174,7 @@ _inject_revision_form_styles()
 
 render_icon_heading("Preparación automática", icon="gears", level=2)
 
-if st.button("Preparar fichas desde vinilos_raw"):
+if st.button("Preparar fichas desde las fichas de Discogs"):
     try:
         result = api_post("/vinilos/preparar")
         n = result["creados"]

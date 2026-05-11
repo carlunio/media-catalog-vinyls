@@ -52,6 +52,14 @@ Notas:
 - `make db-repack` genera una copia recompuesta más compacta como `*.repacked.duckdb`.
 - `make db-repack-replace` sustituye la base activa por la recompuesta y guarda una copia `*.pre_repack.bak.duckdb`.
 - Conviene parar backend y frontend antes de usar `db-repack-replace`.
+- La base activa de la aplicación es `data/vinyls.duckdb`.
+
+## Esquema DuckDB
+
+- Tabla `discogs_release_payloads`: payload crudo de Discogs.
+- Tabla `items`: catálogo editable de vinilos.
+- Tabla `inventory_field_allowed_values`: valores cerrados usados por el formulario.
+- Vista `export`: selección de campos en español para exportación, filtrada por `estado_carga` en `Para subir` y `Para actualizar`.
 
 ## Versionado
 

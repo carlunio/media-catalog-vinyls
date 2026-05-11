@@ -11,10 +11,29 @@ class ViniloNotFoundError(ValueError):
     pass
 
 
-ITEMS_TABLE = "inventory_items"
-LEGACY_ITEMS_TABLE = "vinilos"
+ITEMS_TABLE = "items"
+EXPORT_VIEW_NAME = "export"
 ALLOWED_VALUES_TABLE = "inventory_field_allowed_values"
-LEGACY_ALLOWED_VALUES_TABLE = "vinilo_field_allowed_values"
+EXPORTABLE_LISTING_STATUSES = ("Para subir", "Para actualizar")
+EXPORT_VIEW_COLUMNS: list[tuple[str, str]] = [
+    ("id", "Ref. del artículo"),
+    ("product_type", "Tipo de artículo"),
+    ("title", "Nombre"),
+    ("artists", "Artista"),
+    ("year", "Año"),
+    ("labels", "Sello"),
+    ("country", "País"),
+    ("total_duration", "Duración"),
+    ("estimated_weight", "Peso (g)"),
+    ("genres", "Géneros"),
+    ("styles", "Estilos"),
+    ("media_condition", "Condición del disco"),
+    ("sleeve_condition", "Condición de la funda"),
+    ("condition_comments", "Comentarios sobre la conservación"),
+    ("sale_price", "Precio (€)"),
+    ("tracklist", "Tracklist"),
+    ("notes", "Notas"),
+]
 
 API_TO_DB_FIELD = {
     "tipo_articulo": "product_type",
@@ -58,8 +77,6 @@ OPTIONAL_TEXT_FIELDS = {
     "estado_disco",
     "estado_funda",
     "comentarios_estado",
-    "estado_conservacion",
-    "detalle_estado_conservacion",
     "estado_carga",
     "estado_stock",
     "notas",
@@ -218,24 +235,6 @@ def _clean_optional_text(value):
     return text or None
 
 
-def _table_exists(con, table_name: str) -> bool:
-    rows = con.execute("PRAGMA show_tables").fetchall()
-    return table_name in {str(row[0] or "").strip() for row in rows}
-
-
-def _table_columns(con, table_name: str) -> dict[str, str]:
-    rows = con.execute(f"PRAGMA table_info('{table_name}')").fetchall()
-    return {
-        str(row[1] or "").strip(): str(row[2] or "").strip().upper()
-        for row in rows
-        if str(row[1] or "").strip()
-    }
-
-
-def _legacy_column_or_null(columns: dict[str, str], column_name: str) -> str:
-    return column_name if column_name in columns else "NULL"
-
-
 def _ensure_allowed_values_table(con) -> None:
     con.execute(
         f"""
@@ -253,48 +252,8 @@ def _ensure_allowed_values_table(con) -> None:
     )
 
 
-def _migrate_legacy_allowed_values_table(con) -> None:
-    if not _table_exists(con, LEGACY_ALLOWED_VALUES_TABLE):
-        return
-
-    _ensure_allowed_values_table(con)
-    rows = con.execute(
-        f"""
-        SELECT table_name, field_name, field_value, sort_order
-        FROM {LEGACY_ALLOWED_VALUES_TABLE}
-        """
-    ).fetchall()
-
-    mapped_rows = []
-    for table_name, field_name, field_value, sort_order in rows:
-        legacy_table_name = str(table_name or "").strip()
-        api_field_name = str(field_name or "").strip()
-        db_field_name = API_TO_DB_FIELD.get(api_field_name, api_field_name)
-        mapped_table_name = ITEMS_TABLE if legacy_table_name == LEGACY_ITEMS_TABLE else legacy_table_name
-        mapped_rows.append(
-            (
-                mapped_table_name,
-                db_field_name,
-                str(field_value or "").strip(),
-                int(sort_order or 0),
-            )
-        )
-
-    if mapped_rows:
-        con.executemany(
-            f"""
-            INSERT OR REPLACE INTO {ALLOWED_VALUES_TABLE} (table_name, field_name, field_value, sort_order)
-            VALUES (?, ?, ?, ?)
-            """,
-            mapped_rows,
-        )
-
-    con.execute(f"DROP TABLE {LEGACY_ALLOWED_VALUES_TABLE}")
-
-
 def _sync_allowed_values_table(con) -> None:
     _ensure_allowed_values_table(con)
-    _migrate_legacy_allowed_values_table(con)
 
     target_rows = [
         (ITEMS_TABLE, field_name, field_value, index)
@@ -411,107 +370,27 @@ def _ensure_items_table(con) -> None:
             f"ALTER TABLE {ITEMS_TABLE} ADD COLUMN IF NOT EXISTS {column_name} {column_type}"
         )
 
-    columns = _table_columns(con, ITEMS_TABLE)
-    if "condition_grade" in columns or "condition_notes" in columns:
-        media_condition_expr = "media_condition" if "media_condition" in columns else "condition_grade"
-        sleeve_condition_expr = "sleeve_condition" if "sleeve_condition" in columns else "NULL"
-        condition_comments_expr = "condition_comments" if "condition_comments" in columns else "NULL"
-        if "condition_notes" in columns:
-            condition_comments_expr = f"COALESCE({condition_comments_expr}, condition_notes)"
-        con.execute(
-            f"""
-            CREATE TABLE {ITEMS_TABLE}_rebuilt (
-                id TEXT PRIMARY KEY,
-                product_type TEXT,
-                title TEXT,
-                artists TEXT,
-                year INTEGER,
-                labels TEXT,
-                country TEXT,
-                total_duration TEXT,
-                estimated_weight REAL,
-                genres TEXT,
-                styles TEXT,
-                media_condition TEXT,
-                sleeve_condition TEXT,
-                condition_comments TEXT,
-                lowest_price REAL,
-                sale_price REAL,
-                listing_status TEXT,
-                stock_status TEXT,
-                tracklist TEXT,
-                notes TEXT,
-                updated_at TIMESTAMP
-            )
-            """
-        )
-        con.execute(
-            f"""
-            INSERT INTO {ITEMS_TABLE}_rebuilt (
-                id, product_type, title, artists, year,
-                labels, country, total_duration, estimated_weight,
-                genres, styles, media_condition, sleeve_condition, condition_comments,
-                lowest_price, sale_price, listing_status, stock_status,
-                tracklist, notes, updated_at
-            )
-            SELECT
-                id, product_type, title, artists, year,
-                labels, country, total_duration, estimated_weight,
-                genres, styles,
-                {media_condition_expr},
-                {sleeve_condition_expr},
-                {condition_comments_expr},
-                lowest_price, sale_price, listing_status, stock_status,
-                tracklist, notes, updated_at
-            FROM {ITEMS_TABLE}
-            """
-        )
-        con.execute(f"DROP TABLE {ITEMS_TABLE}")
-        con.execute(f"ALTER TABLE {ITEMS_TABLE}_rebuilt RENAME TO {ITEMS_TABLE}")
+
+def _quote_identifier(identifier: str) -> str:
+    return '"' + str(identifier).replace('"', '""') + '"'
 
 
-def _migrate_legacy_items_table(con) -> None:
-    if not _table_exists(con, LEGACY_ITEMS_TABLE):
-        return
-
-    _ensure_items_table(con)
-    legacy_columns = _table_columns(con, LEGACY_ITEMS_TABLE)
+def _ensure_export_view(con) -> None:
+    select_lines = [
+        f"            {column_name} AS {_quote_identifier(column_label)}"
+        for column_name, column_label in EXPORT_VIEW_COLUMNS
+    ]
+    select_sql = ",\n".join(select_lines)
+    status_values = ", ".join(f"'{value}'" for value in EXPORTABLE_LISTING_STATUSES)
     con.execute(
         f"""
-        INSERT INTO {ITEMS_TABLE} (
-            id, product_type, title, artists, year,
-            labels, country, total_duration, estimated_weight,
-            genres, styles, media_condition, sleeve_condition, condition_comments,
-            lowest_price, sale_price, listing_status, stock_status,
-            tracklist, notes, updated_at
-        )
+        CREATE OR REPLACE VIEW {_quote_identifier(EXPORT_VIEW_NAME)} AS
         SELECT
-            id,
-            {_legacy_column_or_null(legacy_columns, "tipo_articulo")},
-            {_legacy_column_or_null(legacy_columns, "nombre")},
-            {_legacy_column_or_null(legacy_columns, "artista")},
-            {_legacy_column_or_null(legacy_columns, "año")},
-            {_legacy_column_or_null(legacy_columns, "sello")},
-            {_legacy_column_or_null(legacy_columns, "pais")},
-            {_legacy_column_or_null(legacy_columns, "duracion_total")},
-            {_legacy_column_or_null(legacy_columns, "estimated_weight")},
-            {_legacy_column_or_null(legacy_columns, "generos")},
-            {_legacy_column_or_null(legacy_columns, "estilos")},
-            {_legacy_column_or_null(legacy_columns, "estado_conservacion")},
-            NULL,
-            {_legacy_column_or_null(legacy_columns, "detalle_estado_conservacion")},
-            {_legacy_column_or_null(legacy_columns, "menor_precio")},
-            {_legacy_column_or_null(legacy_columns, "precio")},
-            {_legacy_column_or_null(legacy_columns, "estado_carga")},
-            {_legacy_column_or_null(legacy_columns, "estado_stock")},
-            {_legacy_column_or_null(legacy_columns, "tracklist")},
-            {_legacy_column_or_null(legacy_columns, "notas")},
-            {_legacy_column_or_null(legacy_columns, "updated_at")}
-        FROM {LEGACY_ITEMS_TABLE}
-        WHERE id NOT IN (SELECT id FROM {ITEMS_TABLE})
+{select_sql}
+        FROM {ITEMS_TABLE}
+        WHERE listing_status IN ({status_values})
         """
     )
-    con.execute(f"DROP TABLE {LEGACY_ITEMS_TABLE}")
 
 
 def _api_record_from_db_record(record: dict) -> dict:
@@ -526,9 +405,6 @@ def _db_update_payload_from_api_payload(data: dict) -> dict:
     for field in OPTIONAL_TEXT_FIELDS:
         normalized[field] = _clean_optional_text(data.get(field))
 
-    media_condition = normalized.get("estado_disco") or normalized.get("estado_conservacion")
-    condition_comments = normalized.get("comentarios_estado") or normalized.get("detalle_estado_conservacion")
-
     return {
         "product_type": normalized["tipo_articulo"],
         "title": normalized["nombre"],
@@ -541,9 +417,9 @@ def _db_update_payload_from_api_payload(data: dict) -> dict:
         "genres": normalized["generos"],
         "styles": normalized["estilos"],
         "tracklist": normalized["tracklist"],
-        "media_condition": media_condition,
+        "media_condition": normalized["estado_disco"],
         "sleeve_condition": normalized.get("estado_funda"),
-        "condition_comments": condition_comments,
+        "condition_comments": normalized["comentarios_estado"],
         "sale_price": data.get("precio"),
         "listing_status": normalized["estado_carga"],
         "stock_status": normalized["estado_stock"],
@@ -554,8 +430,8 @@ def _db_update_payload_from_api_payload(data: dict) -> dict:
 def init_table():
     with closing(get_connection()) as con:
         _ensure_items_table(con)
-        _migrate_legacy_items_table(con)
         _sync_allowed_values_table(con)
+        _ensure_export_view(con)
 
 
 def preparar():
@@ -564,7 +440,7 @@ def preparar():
         raws = con.execute(
             f"""
             SELECT id, data
-            FROM {vinilos_raw.RAW_TABLE}
+            FROM {vinilos_raw.RAW_TABLE_REF}
             WHERE id NOT IN (SELECT id FROM {ITEMS_TABLE})
             """
         ).fetchall()

@@ -24,12 +24,12 @@ render_icon_cards(
         (
             "magnifying-glass",
             "Discogs",
-            "Busca releases, revisa la ficha original y guarda el material crudo en la base de datos.",
+            "Busca releases, revisa la ficha original y guarda las fichas de Discogs en la base de datos.",
         ),
         (
             "pen-to-square",
             "Revisión",
-            "Prepara fichas desde vinilos_raw y completa la información final para el catálogo.",
+            "Prepara fichas desde las fichas de Discogs y completa la información final para el catálogo.",
         ),
         (
             "file-export",

@@ -135,7 +135,7 @@ if "selected_release_id" in st.session_state:
     # -------------------------
     # GUARDADO
     # -------------------------
-    render_icon_heading("Guardar en vinilos_raw", icon="database", level=3)
+    render_icon_heading("Guardar ficha de Discogs", icon="database", level=3)
 
     with st.form("guardar_form"):
         catalog_id = st.text_input("ID para tu catálogo")

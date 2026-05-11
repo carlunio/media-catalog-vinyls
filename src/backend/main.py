@@ -12,7 +12,7 @@ from src.project_meta import get_app_meta
 from .config import EXPORTS_DIR
 from .discogs_client import DiscogsClientConfigurationError, get_client
 from .schemas.discogs import DiscogsSearchResult
-from .schemas.vinilos import ViniloListItem, ViniloOut, ViniloUpdateRequest
+from .schemas.vinilos import ExportUploadRequest, ViniloListItem, ViniloOut, ViniloUpdateRequest
 from .schemas.vinilos_raw import ViniloRawIn
 from .services import export, vinilos, vinilos_raw
 from .services.vinilos import ViniloNotFoundError
@@ -223,6 +223,18 @@ def update_vinilo(id_: str, payload: ViniloUpdateRequest):
     return {"ok": True, "vinilo": updated}
 
 
+@app.get("/export/vinilos/preview")
+def export_vinilos_preview():
+    preview = export.get_export_preview()
+    return {
+        "ok": True,
+        "columns": preview["columns"],
+        "rows": preview["rows"],
+        "ids": preview["ids"],
+        "rows_count": int(preview["rows_count"]),
+    }
+
+
 @app.get("/export/vinilos/txt")
 def export_vinilos_txt():
     result = export.export_vinilos_txt()
@@ -232,6 +244,7 @@ def export_vinilos_txt():
         "path": str(path),
         "filename": str(result["filename"]),
         "rows": int(result["rows"]),
+        "ids": result["ids"],
     }
 
 
@@ -254,3 +267,13 @@ def export_vinilos_file(filename: str):
         media_type="text/plain",
         filename=name,
     )
+
+
+@app.post("/export/vinilos/mark-uploaded")
+def export_vinilos_mark_uploaded(payload: ExportUploadRequest):
+    result = export.mark_exported_items_as_uploaded(payload.ids)
+    return {
+        "ok": True,
+        "updated": int(result["updated"]),
+        "ids": result["ids"],
+    }

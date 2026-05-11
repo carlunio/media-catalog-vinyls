@@ -49,3 +49,7 @@ class ViniloOut(BaseModel):
     tracklist: str | None = None
     notas: str | None = None
     discogs_image_url: str | None = None
+
+
+class ExportUploadRequest(BaseModel):
+    ids: list[str]

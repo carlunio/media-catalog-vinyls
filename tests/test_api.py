@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 def _load_app(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("PROJECT_ROOT", str(tmp_path))
-    monkeypatch.setenv("DB_PATH", str(tmp_path / "vinilos.duckdb"))
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "vinyls.duckdb"))
     monkeypatch.setenv("EXPORTS_DIR", str(tmp_path / "exports"))
     monkeypatch.delenv("DISCOGS_TOKEN", raising=False)
 
@@ -53,7 +53,7 @@ def test_vinilos_raw_duplicate_returns_conflict(tmp_path, monkeypatch):
     assert first.status_code == 200
     assert second.status_code == 409
 
-    with duckdb.connect(str(tmp_path / "vinilos.duckdb")) as con:
+    with duckdb.connect(str(tmp_path / "vinyls.duckdb")) as con:
         tables = {str(row[0]) for row in con.execute("PRAGMA show_tables").fetchall()}
         assert "discogs_release_payloads" in tables
         assert "vinilos_raw" not in tables
@@ -72,33 +72,9 @@ def test_vinilos_raw_duplicate_returns_conflict(tmp_path, monkeypatch):
         assert stored_title == "Discovery"
 
 
-def test_vinilos_raw_legacy_column_is_migrated_and_removed(tmp_path, monkeypatch):
-    db_path = tmp_path / "vinilos.duckdb"
-    with duckdb.connect(str(db_path)) as con:
-        con.execute(
-            """
-            CREATE TABLE vinilos_raw (
-                id TEXT PRIMARY KEY,
-                raw_json TEXT,
-                inserted_at TIMESTAMP DEFAULT now()
-            )
-            """
-        )
-        con.execute(
-            "INSERT INTO vinilos_raw (id, raw_json) VALUES (?, ?)",
-            (
-                "VIN-LEGACY",
-                '{"title":"Blue Train","artists":[{"name":"John Coltrane"}],"year":1957}',
-            ),
-        )
-
-    app = _load_app(tmp_path, monkeypatch)
-    client = TestClient(app)
-
-    response = client.get("/vinilos_raw/info/VIN-LEGACY")
-    assert response.status_code == 200
-    assert "Blue Train" in response.json()["info"]
-
+def test_vinilos_raw_schema_is_initialized(tmp_path, monkeypatch):
+    _load_app(tmp_path, monkeypatch)
+    db_path = tmp_path / "vinyls.duckdb"
     with duckdb.connect(str(db_path)) as con:
         tables = {str(row[0]) for row in con.execute("PRAGMA show_tables").fetchall()}
         assert "discogs_release_payloads" in tables
@@ -111,103 +87,11 @@ def test_vinilos_raw_legacy_column_is_migrated_and_removed(tmp_path, monkeypatch
         assert columns["data"] == "JSON"
         assert "raw_json" not in columns
 
-        stored_title = con.execute(
-            "SELECT json_extract_string(data, '$.title') FROM discogs_release_payloads WHERE id = ?",
-            ("VIN-LEGACY",),
-        ).fetchone()[0]
-        assert stored_title == "Blue Train"
 
-
-def test_legacy_vinilos_schema_is_migrated_to_english_tables(tmp_path, monkeypatch):
-    db_path = tmp_path / "vinilos.duckdb"
-    with duckdb.connect(str(db_path)) as con:
-        con.execute(
-            """
-            CREATE TABLE vinilos (
-                id TEXT PRIMARY KEY,
-                tipo_articulo TEXT,
-                nombre TEXT,
-                artista TEXT,
-                año INTEGER,
-                sello TEXT,
-                pais TEXT,
-                duracion_total TEXT,
-                estimated_weight REAL,
-                generos TEXT,
-                estilos TEXT,
-                estado_conservacion TEXT,
-                detalle_estado_conservacion TEXT,
-                menor_precio REAL,
-                precio REAL,
-                estado_carga TEXT,
-                estado_stock TEXT,
-                tracklist TEXT,
-                notas TEXT,
-                updated_at TIMESTAMP
-            )
-            """
-        )
-        con.execute(
-            """
-            INSERT INTO vinilos (
-                id, tipo_articulo, nombre, artista, año, sello, pais,
-                duracion_total, estimated_weight, generos, estilos,
-                estado_conservacion, detalle_estado_conservacion, menor_precio,
-                precio, estado_carga, estado_stock, tracklist, notas, updated_at
-            )
-            VALUES (
-                'VIN-MIG',
-                'LP',
-                'A Love Supreme',
-                'John Coltrane',
-                1965,
-                'Impulse!',
-                'US',
-                '32:48',
-                180,
-                'Jazz',
-                'Modal',
-                'VG+',
-                'Carpeta con desgaste leve.',
-                24.50,
-                29.95,
-                'Para actualizar',
-                'En stock',
-                'A1 - Acknowledgement (7:42)',
-                'Notas heredadas',
-                now()
-            )
-            """
-        )
-        con.execute(
-            """
-            CREATE TABLE vinilo_field_allowed_values (
-                table_name TEXT,
-                field_name TEXT,
-                field_value TEXT,
-                sort_order INTEGER DEFAULT 0,
-                PRIMARY KEY (table_name, field_name, field_value)
-            )
-            """
-        )
-        con.execute(
-            """
-            INSERT INTO vinilo_field_allowed_values (table_name, field_name, field_value, sort_order)
-            VALUES ('vinilos', 'tipo_articulo', 'LP', 0)
-            """
-        )
-
+def test_items_schema_and_export_view_are_initialized(tmp_path, monkeypatch):
+    db_path = tmp_path / "vinyls.duckdb"
     app = _load_app(tmp_path, monkeypatch)
     client = TestClient(app)
-
-    response = client.get("/vinilos/VIN-MIG")
-    assert response.status_code == 200
-    body = response.json()
-    assert body["nombre"] == "A Love Supreme"
-    assert body["sello"] == "Impulse!"
-    assert body["estado_disco"] == "VG+"
-    assert body["estado_funda"] is None
-    assert body["comentarios_estado"] == "Carpeta con desgaste leve."
 
     options = client.get("/vinilos/options")
     assert options.status_code == 200
@@ -215,14 +99,16 @@ def test_legacy_vinilos_schema_is_migrated_to_english_tables(tmp_path, monkeypat
 
     with duckdb.connect(str(db_path)) as con:
         tables = {str(row[0]) for row in con.execute("PRAGMA show_tables").fetchall()}
-        assert "inventory_items" in tables
+        assert "items" in tables
+        assert "export" in tables
         assert "inventory_field_allowed_values" in tables
         assert "vinilos" not in tables
+        assert "inventory_items" not in tables
         assert "vinilo_field_allowed_values" not in tables
 
         columns = {
             str(row[1]): str(row[2])
-            for row in con.execute("PRAGMA table_info('inventory_items')").fetchall()
+            for row in con.execute("PRAGMA table_info('items')").fetchall()
         }
         assert "product_type" in columns
         assert "title" in columns
@@ -233,6 +119,60 @@ def test_legacy_vinilos_schema_is_migrated_to_english_tables(tmp_path, monkeypat
         assert "condition_comments" in columns
         assert "listing_status" in columns
         assert "stock_status" in columns
+
+        con.execute(
+            """
+            INSERT INTO items (
+                id, product_type, title, artists, year,
+                labels, country, total_duration, estimated_weight,
+                genres, styles, media_condition, sleeve_condition, condition_comments,
+                lowest_price, sale_price, listing_status, stock_status,
+                tracklist, notes, updated_at
+            )
+            VALUES (
+                'VIN-INIT', 'LP', 'A Love Supreme', 'John Coltrane', 1965,
+                'Impulse!', 'US', '32:48', 180,
+                'Jazz', 'Modal', 'VG+', 'VG', 'Carpeta con desgaste leve.',
+                24.50, 29.95, 'Para actualizar', 'En stock',
+                'A1 - Acknowledgement (7:42)', 'Notas iniciales', now()
+            )
+            """
+        )
+
+        export_cur = con.execute('SELECT * FROM "export"')
+        export_columns = [desc[0] for desc in export_cur.description]
+        export_rows = export_cur.fetchall()
+        assert export_columns == [
+            "Ref. del artículo",
+            "Tipo de artículo",
+            "Nombre",
+            "Artista",
+            "Año",
+            "Sello",
+            "País",
+            "Duración",
+            "Peso (g)",
+            "Géneros",
+            "Estilos",
+            "Condición del disco",
+            "Condición de la funda",
+            "Comentarios sobre la conservación",
+            "Precio (€)",
+            "Tracklist",
+            "Notas",
+        ]
+        assert len(export_rows) == 1
+        assert export_rows[0][0] == "VIN-INIT"
+        assert export_rows[0][2] == "A Love Supreme"
+
+    response = client.get("/vinilos/VIN-INIT")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["nombre"] == "A Love Supreme"
+    assert body["sello"] == "Impulse!"
+    assert body["estado_disco"] == "VG+"
+    assert body["estado_funda"] == "VG"
+    assert body["comentarios_estado"] == "Carpeta con desgaste leve."
 
 
 def test_vinilos_options_expose_closed_values(tmp_path, monkeypatch):
@@ -392,6 +332,26 @@ def test_prepare_update_and_export_flow(tmp_path, monkeypatch):
     assert updated_vinilo["estado_funda"] == "VG"
     assert updated_vinilo["comentarios_estado"] == "Ligero desgaste superficial, reproducción sólida."
 
+    with duckdb.connect(str(tmp_path / "vinyls.duckdb")) as con:
+        con.execute(
+            """
+            INSERT INTO items (
+                id, product_type, title, artists, year,
+                labels, country, total_duration, estimated_weight,
+                genres, styles, media_condition, sleeve_condition, condition_comments,
+                lowest_price, sale_price, listing_status, stock_status,
+                tracklist, notes, updated_at
+            )
+            VALUES (
+                'VIN-999', 'LP', 'Blue Train', 'John Coltrane', 1957,
+                'Blue Note', 'US', '42:51', 180,
+                'Jazz', 'Hard Bop', 'VG', 'VG', 'No debe salir en la exportación.',
+                18.00, 24.00, 'Subido', 'Vendido',
+                'A1 - Blue Train (10:43)', 'Registro ya exportado', now()
+            )
+            """
+        )
+
     export_response = client.get("/export/vinilos/txt")
     assert export_response.status_code == 200
     export_payload = export_response.json()
@@ -403,6 +363,26 @@ def test_prepare_update_and_export_flow(tmp_path, monkeypatch):
         params={"filename": export_payload["filename"]},
     )
     assert download_response.status_code == 200
-    assert "comentarios_estado" in download_response.text
+    header, *_ = download_response.text.splitlines()
+    assert header.split("\t") == [
+        "Ref. del artículo",
+        "Tipo de artículo",
+        "Nombre",
+        "Artista",
+        "Año",
+        "Sello",
+        "País",
+        "Duración",
+        "Peso (g)",
+        "Géneros",
+        "Estilos",
+        "Condición del disco",
+        "Condición de la funda",
+        "Comentarios sobre la conservación",
+        "Precio (€)",
+        "Tracklist",
+        "Notas",
+    ]
     assert "Kind of Blue" in download_response.text
     assert "VG+" in download_response.text
+    assert "Blue Train" not in download_response.text

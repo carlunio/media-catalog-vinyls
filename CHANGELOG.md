@@ -12,6 +12,7 @@
 - La migración de `vinilos_raw` elimina físicamente la antigua columna `raw_json` tras copiar su contenido a `data`, de modo que el esquema activo ya no arrastra campos legacy.
 - Se añaden utilidades de mantenimiento de DuckDB (`db-maint`, `db-repack`, `db-repack-replace`) siguiendo el patrón ya aplicado en `media-catalog-books`.
 - El esquema interno de DuckDB pasa a nombres de tabla y columna en inglés estandarizado, manteniendo la API y la UI actuales en español como capa de compatibilidad.
+- La exportación pasa a apoyarse en la vista DuckDB `export`, con cabeceras en español y filtro por `estado_carga` para incluir solo `Para subir` y `Para actualizar`.
 - La pantalla de revisión manual se reorganiza con una cabecera funcional (`id`, tipo y estados), bloques semánticos y etiquetas cromáticas inspiradas en el formulario de `media-catalog-books`.
 - La revisión manual gana una presentación más limpia y utilizable, con selector más informativo, tarjetas visuales y un campo amplio para detallar el estado de conservación.
 - `duracion_total` pasa a calcularse automáticamente desde las duraciones individuales de la `tracklist`, devolviendo `mm:ss` o `h:mm:ss` según corresponda.
