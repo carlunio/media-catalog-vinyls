@@ -1,3 +1,4 @@
+import html
 import streamlit as st
 
 try:
@@ -25,6 +26,8 @@ except ModuleNotFoundError:  # pragma: no cover
     )
 
 configure_page("Revisión | Catálogo de vinilos")
+
+GRADING_GUIDE_URL = "https://support.discogs.com/hc/en-us/articles/360001566193-How-To-Grade-Items"
 
 
 def _safe_index(options, value, default=0):
@@ -95,15 +98,29 @@ def _inject_revision_form_styles():
             margin-top: 0.25rem;
         }
         .vinyl-form-label {
+            align-items: center;
             border: 1px solid rgba(77, 70, 62, 0.22);
             border-radius: 10px;
             color: #22313a;
+            display: flex;
             font-size: 0.96rem;
             font-weight: 700;
+            gap: 0.5rem;
+            justify-content: space-between;
             line-height: 1.1rem;
             margin-bottom: 0.34rem;
             padding: 0.45rem 0.58rem;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+        }
+        .vinyl-form-label-link {
+            color: #22313a;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+        .vinyl-form-label-link:hover {
+            color: #9e5637;
         }
         .vf-blue { background: #9babb8; }
         .vf-green { background: #afbb93; }
@@ -143,21 +160,32 @@ def _inject_revision_form_styles():
     )
 
 
-def _render_label(container, label, label_class):
+def _render_label(container, label, label_class, *, help_url=None, help_label=None):
+    safe_label = html.escape(str(label))
+    safe_label_class = html.escape(str(label_class))
+    help_html = ""
+    if help_url:
+        safe_help_url = html.escape(str(help_url), quote=True)
+        safe_help_label = html.escape(str(help_label or "Abrir ayuda"), quote=True)
+        help_html = (
+            f"<a class='vinyl-form-label-link' href='{safe_help_url}' "
+            f"target='_blank' rel='noopener noreferrer' aria-label='{safe_help_label}' "
+            f"title='{safe_help_label}'><i class='fa-solid fa-circle-info'></i></a>"
+        )
     container.markdown(
-        f"<div class='vinyl-form-label {label_class}'>{label}</div>",
+        f"<div class='vinyl-form-label {safe_label_class}'><span>{safe_label}</span>{help_html}</div>",
         unsafe_allow_html=True,
     )
 
 
-def _render_inline_widget(container, *, label, label_class, ratio=(0.36, 0.64), render):
+def _render_inline_widget(container, *, label, label_class, ratio=(0.36, 0.64), render, help_url=None, help_label=None):
     left_col, right_col = container.columns([ratio[0], ratio[1]], gap="small")
-    _render_label(left_col, label, label_class)
+    _render_label(left_col, label, label_class, help_url=help_url, help_label=help_label)
     return render(right_col)
 
 
-def _render_stacked_widget(container, *, label, label_class, render):
-    _render_label(container, label, label_class)
+def _render_stacked_widget(container, *, label, label_class, render, help_url=None, help_label=None):
+    _render_label(container, label, label_class, help_url=help_url, help_label=help_label)
     return render(container)
 
 
@@ -497,6 +525,8 @@ with st.form("form_revision"):
             st,
             label="Condición del disco",
             label_class="vf-yellow",
+            help_url=GRADING_GUIDE_URL,
+            help_label="Abrir guía de graduación de Discogs en otra pestaña",
             render=lambda target: target.selectbox(
                 "Condición del disco",
                 estado_disco_options,
@@ -513,6 +543,8 @@ with st.form("form_revision"):
             st,
             label="Condición de la funda",
             label_class="vf-yellow",
+            help_url=GRADING_GUIDE_URL,
+            help_label="Abrir guía de graduación de Discogs en otra pestaña",
             render=lambda target: target.selectbox(
                 "Condición de la funda",
                 estado_funda_options,

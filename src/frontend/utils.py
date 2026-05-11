@@ -6,7 +6,10 @@ from typing import Any
 import requests
 import streamlit as st
 
-from src.project_meta import get_app_meta
+try:
+    from src.project_meta import get_app_meta
+except ModuleNotFoundError:  # pragma: no cover
+    from project_meta import get_app_meta
 
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
 APP_META = get_app_meta()
