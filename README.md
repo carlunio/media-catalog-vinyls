@@ -53,13 +53,15 @@ Notas:
 - `make db-repack-replace` sustituye la base activa por la recompuesta y guarda una copia `*.pre_repack.bak.duckdb`.
 - Conviene parar backend y frontend antes de usar `db-repack-replace`.
 - La base activa de la aplicación es `data/vinyls.duckdb`.
+- `data/secciones.csv` es el catálogo local de secciones de Todocolección; se usa para poblar `tc_sections` y el selector de sección TC.
 
 ## Esquema DuckDB
 
 - Tabla `discogs_release_payloads`: payload crudo de Discogs.
 - Tabla `items`: catálogo editable de vinilos.
 - Tabla `inventory_field_allowed_values`: valores cerrados usados por el formulario.
-- Vista `export`: selección de campos en español para exportación, filtrada por `estado_carga` en `Para subir` y `Para actualizar`.
+- Tabla `tc_sections`: árbol de secciones de Todocolección generado desde `data/secciones.csv`.
+- Vista `export`: plantilla Importamatic separada por `#`, filtrada por `estado_carga` en `ALTA`, `CAMBIO` y `BAJA`.
 
 ## Versionado
 
@@ -79,6 +81,6 @@ Si más adelante quieres distinguir entornos paralelos, puedes usar opcionalment
 
 - `src/backend`: API, acceso a datos y lógica de negocio
 - `src/frontend`: interfaz de Streamlit
-- `data/`: base de datos DuckDB local
+- `data/`: base de datos DuckDB local y CSV auxiliares locales
 - `data/exports/`: exportaciones generadas
 - `docs/`: documentación Quarto

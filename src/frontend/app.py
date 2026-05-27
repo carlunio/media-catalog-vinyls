@@ -34,7 +34,7 @@ render_icon_cards(
         (
             "file-export",
             "Exportación",
-            "Genera el TXT tabulado final para usarlo fuera de la aplicación.",
+            "Genera el CSV de Importamatic separado por almohadillas.",
         ),
     ]
 )

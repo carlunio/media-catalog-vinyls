@@ -26,7 +26,6 @@ __pycache__/
 *.duckdb
 *.duckdb.wal
 
-# Generated exports
+# Local data, reference files and generated exports
+/data/
 exports/
-/data/exports/*
-!/data/exports/.gitkeep

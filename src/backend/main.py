@@ -202,7 +202,10 @@ def list_vinilos():
 
 @app.get("/vinilos/options")
 def vinilos_options():
-    return {"allowed_values": vinilos.get_vinilos_allowed_values()}
+    return {
+        "allowed_values": vinilos.get_vinilos_allowed_values(),
+        "tc_sections": vinilos.get_tc_sections_catalog(),
+    }
 
 
 @app.get("/vinilos/{id_}", response_model=ViniloOut)
@@ -237,7 +240,30 @@ def export_vinilos_preview():
 
 @app.get("/export/vinilos/txt")
 def export_vinilos_txt():
-    result = export.export_vinilos_txt()
+    return export_vinilos_csv()
+
+
+@app.get("/export/vinilos/csv")
+def export_vinilos_csv():
+    result = export.export_vinilos_csv()
+    path = Path(str(result["path"]))
+    return {
+        "ok": True,
+        "path": str(path),
+        "filename": str(result["filename"]),
+        "rows": int(result["rows"]),
+        "ids": result["ids"],
+    }
+
+
+@app.post("/export/vinilos/txt")
+def export_vinilos_txt_selected(payload: ExportUploadRequest):
+    return export_vinilos_csv_selected(payload)
+
+
+@app.post("/export/vinilos/csv")
+def export_vinilos_csv_selected(payload: ExportUploadRequest):
+    result = export.export_vinilos_csv(ids=payload.ids)
     path = Path(str(result["path"]))
     return {
         "ok": True,
@@ -255,8 +281,8 @@ def export_vinilos_file(filename: str):
         raise HTTPException(status_code=400, detail="filename is required")
     if "/" in name or "\\" in name:
         raise HTTPException(status_code=400, detail="invalid filename")
-    if not name.lower().endswith(".txt"):
-        raise HTTPException(status_code=400, detail="only .txt exports are allowed")
+    if not name.lower().endswith((".csv", ".txt")):
+        raise HTTPException(status_code=400, detail="only .csv or .txt exports are allowed")
 
     path = EXPORTS_DIR / name
     if not path.exists() or not path.is_file():
@@ -264,16 +290,21 @@ def export_vinilos_file(filename: str):
 
     return FileResponse(
         path=str(path),
-        media_type="text/plain",
+        media_type="text/csv" if name.lower().endswith(".csv") else "text/plain",
         filename=name,
     )
 
 
-@app.post("/export/vinilos/mark-uploaded")
-def export_vinilos_mark_uploaded(payload: ExportUploadRequest):
-    result = export.mark_exported_items_as_uploaded(payload.ids)
+@app.post("/export/vinilos/clear-operation")
+def export_vinilos_clear_operation(payload: ExportUploadRequest):
+    result = export.clear_exported_items_listing_status(payload.ids)
     return {
         "ok": True,
         "updated": int(result["updated"]),
         "ids": result["ids"],
     }
+
+
+@app.post("/export/vinilos/mark-uploaded")
+def export_vinilos_mark_uploaded(payload: ExportUploadRequest):
+    return export_vinilos_clear_operation(payload)

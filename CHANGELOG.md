@@ -5,14 +5,15 @@
 - Añadir más contexto de versión en UI y operación cuando exista política cerrada de publicación.
 
 ### Changed
-- La carpeta de exportación pasa a ser `data/exports` en vez de `exports`, manteniendo el directorio versionado vacío con `.gitkeep`.
-- `estado_conservacion` pasa a usar grados estilo Discogs (`M`, `NM or M-`, `VG+`, etc.), con valor por defecto nulo y nuevo campo `detalle_estado_conservacion`.
+- La carpeta de exportación pasa a ser `data/exports` en vez de `exports`, quedando todo `data/` como contenido local ignorado por git.
+- `estado_conservacion` pasa a usar grados estilo Discogs (`M`, `NM`, `VG+`, etc.), con valor por defecto nulo y nuevo campo `detalle_estado_conservacion`.
 - Los campos cerrados de `vinilos` pasan a gestionarse con tabla de valores permitidos en DuckDB y endpoint de opciones, siguiendo el patrón aplicado en `media-catalog-books`.
 - `vinilos_raw` pasa a persistir el payload crudo en una columna `data` de tipo `JSON` real en DuckDB, con migración suave para tablas antiguas.
 - La migración de `vinilos_raw` elimina físicamente la antigua columna `raw_json` tras copiar su contenido a `data`, de modo que el esquema activo ya no arrastra campos legacy.
 - Se añaden utilidades de mantenimiento de DuckDB (`db-maint`, `db-repack`, `db-repack-replace`) siguiendo el patrón ya aplicado en `media-catalog-books`.
 - El esquema interno de DuckDB pasa a nombres de tabla y columna en inglés estandarizado, manteniendo la API y la UI actuales en español como capa de compatibilidad.
-- La exportación pasa a apoyarse en la vista DuckDB `export`, con cabeceras en español y filtro por `estado_carga` para incluir solo `Para subir` y `Para actualizar`.
+- La exportación pasa a apoyarse en la vista DuckDB `export`, con cabeceras Importamatic separadas por `#` y filtro por `estado_carga` en `ALTA`, `CAMBIO` y `BAJA`.
+- Se añade `estado_tc` editable con valores 1-5 y la descripción de estado exportada se compone desde disco, funda y comentarios de conservación.
 - La pantalla de revisión manual se reorganiza con una cabecera funcional (`id`, tipo y estados), bloques semánticos y etiquetas cromáticas inspiradas en el formulario de `media-catalog-books`.
 - La revisión manual gana una presentación más limpia y utilizable, con selector más informativo, tarjetas visuales y un campo amplio para detallar el estado de conservación.
 - `duracion_total` pasa a calcularse automáticamente desde las duraciones individuales de la `tracklist`, devolviendo `mm:ss` o `h:mm:ss` según corresponda.

@@ -8,11 +8,27 @@ from ..database import get_connection
 from . import vinilos
 
 
-def query_export_rows() -> tuple[list[str], list[dict[str, Any]]]:
+def _normalize_ids(ids: list[str] | tuple[str, ...] | None) -> list[str]:
+    normalized_ids: list[str] = []
+    for raw_id in ids or []:
+        item_id = str(raw_id or "").strip()
+        if item_id and item_id not in normalized_ids:
+            normalized_ids.append(item_id)
+    return normalized_ids
+
+
+def query_export_rows(ids: list[str] | tuple[str, ...] | None = None) -> tuple[list[str], list[dict[str, Any]]]:
+    normalized_ids = _normalize_ids(ids)
+    sql = f'SELECT * FROM "{vinilos.EXPORT_VIEW_NAME}"'
+    params: list[Any] = []
+    if normalized_ids:
+        placeholders = ", ".join(["?"] * len(normalized_ids))
+        sql += f' WHERE "{vinilos.EXPORT_REFERENCE_COLUMN}" IN ({placeholders})'
+        params.extend(normalized_ids)
+    sql += f' ORDER BY "{vinilos.EXPORT_REFERENCE_COLUMN}"'
+
     with get_connection() as con:
-        cur = con.execute(
-            f'SELECT * FROM "{vinilos.EXPORT_VIEW_NAME}" ORDER BY "Ref. del artículo"'
-        )
+        cur = con.execute(sql, params)
         columns = [desc[0] for desc in cur.description]
         tuples = cur.fetchall()
 
@@ -23,12 +39,24 @@ def query_export_rows() -> tuple[list[str], list[dict[str, Any]]]:
 def _serialize_value(value: Any) -> str:
     if value is None:
         return ""
-    return str(value).replace("\t", " ").replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\\n")
+    return (
+        str(value)
+        .replace("#", " ")
+        .replace('"', "'")
+        .replace("\t", " ")
+        .replace("\r\n", " / ")
+        .replace("\r", " / ")
+        .replace("\n", " / ")
+    )
 
 
-def get_export_preview() -> dict[str, Any]:
-    columns, rows = query_export_rows()
-    ids = [str(row.get("Ref. del artículo") or "").strip() for row in rows if str(row.get("Ref. del artículo") or "").strip()]
+def get_export_preview(ids: list[str] | tuple[str, ...] | None = None) -> dict[str, Any]:
+    columns, rows = query_export_rows(ids=ids)
+    ids = [
+        str(row.get(vinilos.EXPORT_REFERENCE_COLUMN) or "").strip()
+        for row in rows
+        if str(row.get(vinilos.EXPORT_REFERENCE_COLUMN) or "").strip()
+    ]
     return {
         "columns": columns,
         "rows": rows,
@@ -37,22 +65,27 @@ def get_export_preview() -> dict[str, Any]:
     }
 
 
-def export_vinilos_txt(output_path: Path | None = None) -> dict[str, Any]:
-    preview = get_export_preview()
+def export_vinilos_csv(
+    output_path: Path | None = None,
+    *,
+    ids: list[str] | tuple[str, ...] | None = None,
+) -> dict[str, Any]:
+    preview = get_export_preview(ids=ids)
     columns = preview["columns"]
     rows = preview["rows"]
     if output_path is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = EXPORTS_DIR / f"vinilos_{timestamp}.txt"
+        output_path = EXPORTS_DIR / f"vinilos_{timestamp}.csv"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(
             file,
             fieldnames=columns,
-            delimiter="\t",
-            quoting=csv.QUOTE_MINIMAL,
+            delimiter="#",
+            quoting=csv.QUOTE_NONE,
             extrasaction="ignore",
+            lineterminator="\n",
         )
         writer.writeheader()
         for row in rows:
@@ -67,12 +100,16 @@ def export_vinilos_txt(output_path: Path | None = None) -> dict[str, Any]:
     }
 
 
-def mark_exported_items_as_uploaded(ids: list[str]) -> dict[str, Any]:
-    normalized_ids = []
-    for raw_id in ids:
-        item_id = str(raw_id or "").strip()
-        if item_id and item_id not in normalized_ids:
-            normalized_ids.append(item_id)
+def export_vinilos_txt(
+    output_path: Path | None = None,
+    *,
+    ids: list[str] | tuple[str, ...] | None = None,
+) -> dict[str, Any]:
+    return export_vinilos_csv(output_path=output_path, ids=ids)
+
+
+def clear_exported_items_listing_status(ids: list[str]) -> dict[str, Any]:
+    normalized_ids = _normalize_ids(ids)
 
     if not normalized_ids:
         return {"updated": 0, "ids": []}
@@ -97,7 +134,7 @@ def mark_exported_items_as_uploaded(ids: list[str]) -> dict[str, Any]:
             con.execute(
                 f"""
                 UPDATE {vinilos.ITEMS_TABLE}
-                SET listing_status = 'Subido', updated_at = CURRENT_TIMESTAMP
+                SET listing_status = NULL, updated_at = CURRENT_TIMESTAMP
                 WHERE id IN ({matched_placeholders})
                 """,
                 matched_ids,
