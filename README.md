@@ -54,6 +54,7 @@ Notas:
 - Conviene parar backend y frontend antes de usar `db-repack-replace`.
 - La base activa de la aplicación es `data/vinyls.duckdb`.
 - `data/secciones.csv` es el catálogo local de secciones de Todocolección; se usa para poblar `tc_sections` y el selector de sección TC.
+- La [guía de uso de Importamatic de Todocolección](https://www.todocoleccion.net/mitc/vendedor/guia-de-uso-importamatic) es la referencia para obtener `secciones.csv`, la plantilla de TC y la información de valores admitidos en algunos campos.
 
 ## Esquema DuckDB
 
