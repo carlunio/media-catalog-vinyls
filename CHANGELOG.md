@@ -4,6 +4,9 @@
 - Definir flujo de releases estable para `main` y, si hace falta, canal paralelo `dev`.
 - Añadir más contexto de versión en UI y operación cuando exista política cerrada de publicación.
 
+
+## [1.0.0] - 2026-05-29
+
 ### Changed
 - La carpeta de exportación pasa a ser `data/exports` en vez de `exports`, quedando todo `data/` como contenido local ignorado por git.
 - `estado_conservacion` pasa a usar grados estilo Discogs (`M`, `NM`, `VG+`, etc.), con valor por defecto nulo y nuevo campo `detalle_estado_conservacion`.
