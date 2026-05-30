@@ -3,6 +3,7 @@
 Aplicación local para catalogar vinilos con `FastAPI`, `Streamlit` y `DuckDB`.
 
 - Historial de cambios: `CHANGELOG.md`
+- Hoja de ruta: `ROADMAP.md`
 
 ## Requisitos
 
