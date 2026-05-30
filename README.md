@@ -2,9 +2,11 @@
 
 Aplicación local para catalogar vinilos con `FastAPI`, `Streamlit` y `DuckDB`.
 
-- Historial de cambios: `CHANGELOG.md`
-- Hoja de ruta: `ROADMAP.md`
+Puedes consultar:
 
+- Historial de cambios: [`CHANGELOG.md`](./CHANGELOG.md)
+- Hoja de ruta: [`ROADMAP.md`](./ROADMAP.md)
+  
 ## Requisitos
 
 - Python 3.12+
