@@ -57,7 +57,7 @@ Notas:
 - Conviene parar backend y frontend antes de usar `db-repack-replace`.
 - La base activa de la aplicación es `data/vinyls.duckdb`.
 - `data/secciones.csv` es el catálogo local de secciones de Todocolección; se usa para poblar `tc_sections` y el selector de sección TC.
-- La [guía de uso de Importamatic de Todocolección](https://www.todocoleccion.net/mitc/vendedor/guia-de-uso-importamatic) es la referencia para obtener `secciones.csv`, la plantilla de TC y la información de valores admitidos en algunos campos.
+- La [guía de uso de Importamatic de Todocolección](https://www.todocoleccion.net/mitc/vendedor/guia-de-uso-importamatic) es la referencia para obtener `secciones.csv`, las plantillas de Importamatic y la información de valores admitidos en algunos campos.
 
 ## Esquema DuckDB
 
@@ -65,7 +65,7 @@ Notas:
 - Tabla `items`: catálogo editable de vinilos.
 - Tabla `inventory_field_allowed_values`: valores cerrados usados por el formulario.
 - Tabla `tc_sections`: árbol de secciones de Todocolección generado desde `data/secciones.csv`.
-- Vista `export`: plantilla Importamatic separada por `#`, filtrada por `estado_carga` en `ALTA`, `CAMBIO` y `BAJA`.
+- Vista `export`: plantilla Importamatic `Otros` separada por `#`, filtrada por `estado_carga` en `ALTA`, `CAMBIO` y `BAJA`, con `GASTOS FIJOS` configurable mediante `IMPORTAMATIC_OTHERS_FIXED_COST`.
 
 ## Versionado
 

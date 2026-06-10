@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 import re
 
-from ..config import TC_SECTIONS_CSV_PATH
+from ..config import IMPORTAMATIC_OTHERS_FIXED_COST_EXPORT, TC_SECTIONS_CSV_PATH
 from ..database import get_connection
 from ..normalizers import normalizar_año
 from . import vinilos_raw
@@ -30,14 +30,10 @@ IMPORTAMATIC_EXPORT_COLUMNS = [
     "OPERACIÓN",
     "SECCIÓN",
     "ESTADO",
-    "DESCRIPCIÓN DEL ESTADO",
     "IMAGEN 1 (principal)",
     "IMAGEN 2",
     "IMAGEN 3",
     "FORMA DE ENVÍO",
-    "PESO DEL PAQUETE",
-    "GASTOS DE MANIPULACIÓN",
-    "SEGURO",
     "GASTOS FIJOS",
 ]
 TC_COMPACT_SECOND_LEVEL_PREFIXES = ("CD",)
@@ -304,12 +300,6 @@ def _clean_sql_text(expression: str) -> str:
     )
 
 
-def _labeled_sql_part(label: str, expression: str) -> str:
-    clean_expression = _clean_sql_text(expression)
-    escaped_label = label.replace("'", "''")
-    return f"CASE WHEN {clean_expression} IS NOT NULL THEN '{escaped_label}: ' || {clean_expression} END"
-
-
 def _html_clean_sql_text(expression: str, *, preserve_line_breaks: bool = False) -> str:
     normalized_tabs = f"REGEXP_REPLACE(CAST({expression} AS VARCHAR), '[\\t]+', ' ', 'g')"
     if preserve_line_breaks:
@@ -374,30 +364,6 @@ def _tc_description_sql() -> str:
     )
     fallback = f"'<p>' || {_html_escape_sql('item.title')} || '</p>'"
     return f"COALESCE(NULLIF({description}, ''), {fallback}, '')"
-
-
-def _tc_condition_description_sql() -> str:
-    description = (
-        "CONCAT_WS('. ', "
-        f"{_labeled_sql_part('Disco', 'item.media_condition')}, "
-        f"{_labeled_sql_part('Funda', 'item.sleeve_condition')}"
-        ")"
-    )
-    return f"CASE WHEN NULLIF({description}, '') IS NOT NULL THEN {description} || '.' END"
-
-
-def _tc_package_weight_sql() -> str:
-    return (
-        "CASE "
-        "WHEN item.estimated_weight IS NULL OR item.estimated_weight <= 0 THEN NULL "
-        "WHEN item.estimated_weight <= 500 THEN '0,5' "
-        "WHEN item.estimated_weight <= 2000 THEN '2' "
-        "WHEN item.estimated_weight <= 5000 THEN '5' "
-        "WHEN item.estimated_weight <= 10000 THEN '10' "
-        "WHEN item.estimated_weight <= 20000 THEN '20' "
-        "ELSE '30' "
-        "END"
-    )
 
 
 def _translate_discogs_format_name(name):
@@ -921,18 +887,11 @@ def _ensure_export_view(con) -> None:
         "OPERACIÓN": "item.listing_status",
         "SECCIÓN": "item.tc_section",
         "ESTADO": "item.tc_condition",
-        "DESCRIPCIÓN DEL ESTADO": f"LEFT({_tc_condition_description_sql()}, 100)",
         "IMAGEN 1 (principal)": "NULL",
         "IMAGEN 2": "NULL",
         "IMAGEN 3": "NULL",
-        "FORMA DE ENVÍO": (
-            "CASE WHEN item.estimated_weight IS NULL OR item.estimated_weight <= 0 "
-            "THEN NULL ELSE 'Envíos tc' END"
-        ),
-        "PESO DEL PAQUETE": _tc_package_weight_sql(),
-        "GASTOS DE MANIPULACIÓN": "NULL",
-        "SEGURO": "NULL",
-        "GASTOS FIJOS": "NULL",
+        "FORMA DE ENVÍO": "'Otros'",
+        "GASTOS FIJOS": f"'{IMPORTAMATIC_OTHERS_FIXED_COST_EXPORT}'",
     }
     select_lines = [
         f"            {select_expression_by_column[column_label]} AS {_quote_identifier(column_label)}"

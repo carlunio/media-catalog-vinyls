@@ -1,8 +1,19 @@
 ## [Unreleased]
 
+### Added
+- Se añade `tc_section` en `items`, la tabla auxiliar `tc_sections` reproducible desde `data/secciones.csv` y un selector jerárquico compacto en la revisión manual.
+- `tipo_articulo` pasa a derivarse automáticamente de `formats` de las fichas de Discogs.
+- `creditos` pasa a derivarse automáticamente de `extraartists` en las fichas de Discogs.
+- La exportación en Streamlit incorpora vista previa automática, selección por filas, selector general, descarga local del CSV y opción para quitar la operación a las fichas exportadas.
+
+### Changed
+- La vista `export` pasa a seguir la plantilla `data/plantilla_importamatic_otros.csv`, con `FORMA DE ENVÍO` fijada a `Otros`.
+- `GASTOS FIJOS` pasa a configurarse mediante `IMPORTAMATIC_OTHERS_FIXED_COST`.
+- Se consolida `data/vinyls.duckdb` como base activa, con `items` como tabla principal y `export` como vista de salida.
+
 ### Planned
 - Definir flujo de releases estable para `main` y, si hace falta, canal paralelo `dev`.
-- Añadir más contexto de versión en UI y operación cuando exista política cerrada de publicación.
+- Añadir más contexto de versión en UI y operación cuando exista una política cerrada de publicación.
 
 
 ## [1.0.0] - 2026-05-29
@@ -11,7 +22,7 @@
 - La carpeta de exportación pasa a ser `data/exports` en vez de `exports`, quedando todo `data/` como contenido local ignorado por git.
 - `estado_conservacion` pasa a usar grados estilo Discogs (`M`, `NM`, `VG+`, etc.), con valor por defecto nulo y nuevo campo `detalle_estado_conservacion`.
 - Los campos cerrados de `vinilos` pasan a gestionarse con tabla de valores permitidos en DuckDB y endpoint de opciones, siguiendo el patrón aplicado en `media-catalog-books`.
-- `vinilos_raw` pasa a persistir el payload crudo en una columna `data` de tipo `JSON` real en DuckDB, con migración suave para tablas antiguas.
+- `vinilos_raw` pasa a persistir los datos originales de Discogs en una columna `data` de tipo `JSON` real en DuckDB, con migración suave para tablas antiguas.
 - La migración de `vinilos_raw` elimina físicamente la antigua columna `raw_json` tras copiar su contenido a `data`, de modo que el esquema activo ya no arrastra campos legacy.
 - Se añaden utilidades de mantenimiento de DuckDB (`db-maint`, `db-repack`, `db-repack-replace`) siguiendo el patrón ya aplicado en `media-catalog-books`.
 - El esquema interno de DuckDB pasa a nombres de tabla y columna en inglés estandarizado, manteniendo la API y la UI actuales en español como capa de compatibilidad.

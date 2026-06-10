@@ -39,8 +39,11 @@ Fortalezas actuales:
 - Datos locales fuera de Git mediante `data/` y ficheros `.duckdb` ignorados.
 - Versión visible desde una única fuente en `pyproject.toml`.
 - `CHANGELOG.md` ya iniciado.
-- Tests de API que cubren flujos importantes: ingesta de datos crudos, preparación, revisión, exportación y errores de Discogs.
+- Tests de API que cubren flujos importantes: ingesta de datos originales de Discogs, preparación, revisión, exportación y errores de Discogs.
 - Comandos `make` para instalación, ejecución, actualización, lint, tests y mantenimiento de DuckDB.
+- Exportación apoyada en la vista `export`, con vista previa automática, selección por filas, descarga local del CSV y limpieza posterior de operación.
+- Selector jerárquico de `tc_section` generado desde `data/secciones.csv`.
+- Derivación automática de `tipo_articulo` y `creditos` a partir de las fichas de Discogs.
 
 Limitaciones actuales:
 
@@ -52,6 +55,8 @@ Limitaciones actuales:
 - Las dependencias no están bloqueadas con un lockfile.
 - `make update-repo` sigue `main`, no la última release estable.
 - La lógica de dominio, migración, exportación y normalización está muy concentrada en `src/backend/services/vinilos.py`.
+- La interpretación jerárquica de `secciones.csv` sigue dependiendo de heurísticas específicas para nombres compuestos.
+- La exportación está acoplada hoy a la plantilla Importamatic de `Otros`; si vuelven otras variantes, habrá que versionar el mapeo.
 
 ## Principios de trabajo
 
@@ -162,6 +167,7 @@ Tareas:
 - [ ] `P1` Definir política: aplicar migraciones automáticamente o exigir comando manual.
 - [ ] `P0` Antes de migraciones destructivas, exigir backup o crear backup automático.
 - [ ] `P0` Cambiar sincronización de `tc_sections`: no borrar tabla activa si el CSV falta o se parsea vacío.
+- [ ] `P1` Añadir pruebas específicas para la heurística de `tc_sections` con casos compuestos como `Pop - Rock`, `Punk - Hard Core`, `Reggae - Ska`, `Jazz-Rock` y `CD`.
 - [ ] `P1` Añadir pruebas de migración desde una DB antigua simulada.
 - [ ] `P2` Registrar versión de app que creó o migró la DB.
 
@@ -190,6 +196,7 @@ La carpeta compartida no debe comportarse como una base de datos desplegada. Deb
 
 Alcance:
 
+- Mantener una DuckDB local activa en `data/vinyls.duckdb` y publicar copias versionadas en una carpeta sincronizada.
 - Publicar snapshots de la DB local en una carpeta sincronizada.
 - Detectar snapshots más recientes al abrir la app.
 - Ofrecer importación manual, nunca automática.
@@ -258,10 +265,11 @@ Flujo para publicar snapshot:
 2. DuckDB ejecuta `CHECKPOINT`.
 3. Se crea una copia reempaquetada en una ruta temporal mediante el mismo principio que `db-repack`.
 4. Se calcula `sha256` de la copia reempaquetada.
-5. Se copia el `.duckdb` final a `CLOUD_SNAPSHOTS_DIR/snapshots`.
-6. Se escribe el manifiesto `.json` al final, solo cuando la copia está completa.
-7. Se actualiza `data/sync_state.json`.
-8. Se ejecuta limpieza de snapshots antiguos según política de retención.
+5. Se genera un nombre único para evitar sobrescribir snapshots previos, incluso si se publican varias copias en muy poco tiempo.
+6. Se copia el `.duckdb` final a `CLOUD_SNAPSHOTS_DIR/snapshots`.
+7. Se escribe el manifiesto `.json` al final, solo cuando la copia está completa.
+8. Se actualiza `data/sync_state.json`.
+9. Se ejecuta limpieza de snapshots antiguos según política de retención.
 
 Flujo para detectar snapshot externo:
 
@@ -293,6 +301,7 @@ Tareas:
 - [ ] `P1` Crear módulo de sincronización por snapshots, por ejemplo `src/backend/services/snapshots.py`.
 - [ ] `P1` Crear generación de snapshot reempaquetado sin modificar la DB activa.
 - [ ] `P1` Calcular y guardar `sha256`.
+- [ ] `P1` Generar nombres únicos de snapshot para no machacar copias previas si se publican varias seguidas.
 - [ ] `P1` Escribir manifiesto `.json` solo después de copiar la DB completa.
 - [ ] `P1` Crear lectura y validación de manifiestos.
 - [ ] `P1` Crear `data/sync_state.json` o tabla interna equivalente.
@@ -312,6 +321,7 @@ Criterios de aceptación:
 
 - La app nunca abre en escritura una DuckDB ubicada directamente en la carpeta sincronizada.
 - Publicar snapshot genera `.duckdb` reempaquetado y `.json` coherente.
+- Publicar varias veces en poco tiempo no sobrescribe snapshots previos por accidente.
 - Un snapshot a medio sincronizar se ignora hasta que el manifiesto y el hash sean válidos.
 - Importar crea backup local antes de reemplazar la DB.
 - La importación requiere confirmación explícita.
@@ -399,7 +409,7 @@ Tareas:
 - [ ] `P2` Extraer lógica de duración, créditos y formato a funciones puras testeables.
 - [ ] `P2` Extraer construcción de export Importamatic a `domain/importamatic.py`.
 - [ ] `P2` Extraer SQL de items a `repositories/items_repo.py`.
-- [ ] `P2` Extraer SQL de payloads crudos a `repositories/raw_payloads_repo.py`.
+- [ ] `P2` Extraer SQL de datos originales de Discogs a `repositories/raw_payloads_repo.py`.
 - [ ] `P2` Separar routers FastAPI por área funcional.
 - [ ] `P2` Mantener compatibilidad de endpoints existentes durante la refactorización.
 - [ ] `P2` Añadir tests unitarios de dominio sin arrancar FastAPI.
@@ -528,9 +538,10 @@ Tareas:
 - [ ] `P1` Documentar backup y restore.
 - [ ] `P1` Documentar actualización estable.
 - [ ] `P1` Documentar migraciones cuando existan.
+- [ ] `P1` Documentar la plantilla Importamatic de `Otros` y el parámetro `IMPORTAMATIC_OTHERS_FIXED_COST`.
 - [ ] `P2` Crear `docs/architecture.md` o página Quarto equivalente.
 - [ ] `P2` Crear `docs/operations.md`.
-- [ ] `P2` Crear `docs/release-process.md`.
+- [x] `P2` Crear `docs/release-process.md`.
 - [ ] `P2` Mantener `CHANGELOG.md` por versión.
 - [ ] `P2` Mantener este `ROADMAP.md` como documento vivo.
 

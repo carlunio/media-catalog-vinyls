@@ -115,7 +115,7 @@ def _export_result_dialog() -> None:
 
 
 st.markdown("""
-Exporta la vista **export** a un fichero **CSV Importamatic (UTF-8, separado por `#`)**.
+Exporta la vista **export** a un fichero **CSV Importamatic de Otros (UTF-8, separado por `#`)**.
 Solo se incluyen fichas con **Estado de carga** en **ALTA**, **CAMBIO** o **BAJA**.
 """)
 

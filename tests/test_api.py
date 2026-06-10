@@ -19,6 +19,7 @@ def _load_app(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("DB_PATH", str(tmp_path / "vinyls.duckdb"))
     monkeypatch.setenv("EXPORTS_DIR", str(tmp_path / "exports"))
     monkeypatch.setenv("TC_SECTIONS_CSV_PATH", str(TC_SECTIONS_FIXTURE_PATH))
+    monkeypatch.setenv("IMPORTAMATIC_OTHERS_FIXED_COST", "4.5")
     monkeypatch.delenv("DISCOGS_TOKEN", raising=False)
 
     for module_name in list(sys.modules):
@@ -197,9 +198,8 @@ def test_items_schema_and_export_view_are_initialized(tmp_path, monkeypatch):
         assert export_rows[0][5] == "CAMBIO"
         assert export_rows[0][6] == "376"
         assert export_rows[0][7] == "4"
-        assert export_rows[0][8] == "Disco: VG+. Funda: VG."
-        assert export_rows[0][12] == "Envíos tc"
-        assert export_rows[0][13] == "0,5"
+        assert export_rows[0][11] == "Otros"
+        assert export_rows[0][12] == "4,5"
 
         con.execute(
             """
@@ -557,7 +557,6 @@ def test_prepare_update_and_export_flow(tmp_path, monkeypatch):
     header, *_ = download_response.text.splitlines()
     assert header.split("#") == _importamatic_template_columns()
     assert "Kind of Blue" in download_response.text
-    assert "VG+" in download_response.text
     assert "<p><strong>Formato:</strong> Vinilo, LP, Edición revisada</p>" in download_response.text
     assert "<p><strong>Tracklist:</strong></p><ul><li>A1 - So What (9:22)</li></ul>" in download_response.text
     assert (
@@ -569,7 +568,7 @@ def test_prepare_update_and_export_flow(tmp_path, monkeypatch):
     assert "29,99" in download_response.text
     assert "ALTA" in download_response.text
     assert "https://example.test/kind-front.jpg" not in download_response.text
-    assert "####Envíos tc#0,5" in download_response.text
+    assert "#Otros#4,5" in download_response.text
     assert "Blue Train" not in download_response.text
     assert "Giant Steps" not in download_response.text
 
