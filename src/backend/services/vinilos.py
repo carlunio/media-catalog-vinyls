@@ -346,6 +346,18 @@ def _html_list_sql(label: str, expression: str) -> str:
     )
 
 
+def _html_block_paragraph_sql(label: str, expression: str) -> str:
+    escaped_label = label.replace("'", "''")
+    clean_expression = _html_escape_sql(expression, preserve_line_breaks=True)
+    content_expression = (
+        f"REPLACE(REPLACE({clean_expression}, CHR(10) || CHR(10), '<br><br>'), CHR(10), '<br>')"
+    )
+    return (
+        f"CASE WHEN {clean_expression} IS NOT NULL "
+        f"THEN '<p><strong>{escaped_label}:</strong></p><p>' || {content_expression} || '</p>' END"
+    )
+
+
 def _tc_description_sql() -> str:
     description = (
         "CONCAT_WS('', "
@@ -359,7 +371,7 @@ def _tc_description_sql() -> str:
         f"{_html_paragraph_sql('Comentarios de conservación', 'item.condition_comments', preserve_line_breaks=True)}, "
         f"{_html_list_sql('Tracklist', 'item.tracklist')}, "
         f"{_html_list_sql('Créditos', 'item.credits')}, "
-        f"{_html_paragraph_sql('Notas', 'item.notes', preserve_line_breaks=True)}"
+        f"{_html_block_paragraph_sql('Notas', 'item.notes')}"
         ")"
     )
     fallback = f"'<p>' || {_html_escape_sql('item.title')} || '</p>'"

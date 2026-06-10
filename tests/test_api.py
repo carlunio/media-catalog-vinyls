@@ -564,7 +564,11 @@ def test_prepare_update_and_export_flow(tmp_path, monkeypatch):
         "<li>Piano – Bill Evans</li></ul>"
         in download_response.text
     )
-    assert "Edición &lt;especial&gt; &amp; revisada<br><br>Segundo párrafo." in download_response.text
+    assert (
+        "<p><strong>Notas:</strong></p><p>"
+        "Edición &lt;especial&gt; &amp; revisada<br><br>Segundo párrafo.</p>"
+        in download_response.text
+    )
     assert "29,99" in download_response.text
     assert "ALTA" in download_response.text
     assert "https://example.test/kind-front.jpg" not in download_response.text
