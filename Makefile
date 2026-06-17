@@ -17,11 +17,11 @@ PYTHON_BOOTSTRAP := py
 VENV_BIN := $(VENV)/Scripts
 PYTHON := $(VENV_BIN)/python.exe
 PIP := $(VENV_BIN)/pip.exe
-UVICORN := $(PYTHON) -m uvicorn
-STREAMLIT := $(PYTHON) -m streamlit
-RUFF := $(PYTHON) -m ruff
-BLACK := $(PYTHON) -m black
-PYTEST := $(PYTHON) -m pytest
+UVICORN := "$(PYTHON)" -m uvicorn
+STREAMLIT := "$(PYTHON)" -m streamlit
+RUFF := "$(PYTHON)" -m ruff
+BLACK := "$(PYTHON)" -m black
+PYTEST := "$(PYTHON)" -m pytest
 RM_VENV := powershell -NoProfile -Command "if (Test-Path '$(VENV)') { Remove-Item -Recurse -Force '$(VENV)' }"
 STOP_PORT = powershell -NoProfile -Command '$$pids = Get-NetTCPConnection -LocalPort $(1) -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; if ($$pids) { $$pids | ForEach-Object { Stop-Process -Id $$PSItem -Force -ErrorAction SilentlyContinue } }; exit 0'
 STOP_BACK = powershell -NoProfile -Command '$$cmd = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($$_.Name -match "python|uvicorn") -and ($$_.CommandLine -match "src\\.backend\\.main:app") } | Select-Object -ExpandProperty ProcessId -Unique; if ($$cmd) { $$cmd | ForEach-Object { cmd /c "taskkill /PID $$_ /T /F >NUL 2>&1" } }; $$listen = Get-NetTCPConnection -LocalPort $(BACK_PORT) -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; if ($$listen) { $$listen | ForEach-Object { cmd /c "taskkill /PID $$_ /T /F >NUL 2>&1" } }; exit 0'
@@ -31,11 +31,11 @@ PYTHON_BOOTSTRAP := python3
 VENV_BIN := $(VENV)/bin
 PYTHON := $(VENV_BIN)/python
 PIP := $(VENV_BIN)/pip
-UVICORN := $(PYTHON) -m uvicorn
-STREAMLIT := $(PYTHON) -m streamlit
-RUFF := $(PYTHON) -m ruff
-BLACK := $(PYTHON) -m black
-PYTEST := $(PYTHON) -m pytest
+UVICORN := "$(PYTHON)" -m uvicorn
+STREAMLIT := "$(PYTHON)" -m streamlit
+RUFF := "$(PYTHON)" -m ruff
+BLACK := "$(PYTHON)" -m black
+PYTEST := "$(PYTHON)" -m pytest
 RM_VENV := rm -rf $(VENV)
 STOP_PORT = sh -c 'pids=$$(lsof -ti :$(1) 2>/dev/null); if [ -n "$$pids" ]; then kill $$pids 2>/dev/null || true; sleep 0.7; still=$$(lsof -ti :$(1) 2>/dev/null); if [ -n "$$still" ]; then kill -9 $$still 2>/dev/null || true; fi; fi; exit 0'
 # On Linux, avoid pkill patterns here because they can match the shell
@@ -64,12 +64,12 @@ FRONT_PORT ?= 8501
 .PHONY: setup install update-repo update ensure-env db-maint db-repack db-repack-replace publish-snapshot list-snapshots import-snapshot cleanup-snapshots dev-back dev-front dev stop stop-back stop-front restart clean lint format test
 
 setup:
-	$(PYTHON_BOOTSTRAP) -m venv $(VENV)
-	$(PYTHON) -m pip install --upgrade pip
-	$(PYTHON) -m pip install -e '.[dev]'
+	$(PYTHON_BOOTSTRAP) -m venv "$(VENV)"
+	"$(PYTHON)" -m pip install --upgrade pip
+	"$(PYTHON)" -m pip install -e ".[dev]"
 
 install:
-	$(PYTHON) -m pip install -e '.[dev]'
+	"$(PYTHON)" -m pip install -e ".[dev]"
 
 update-repo:
 	git pull $(GIT_REMOTE) $(GIT_BRANCH)
@@ -80,28 +80,28 @@ update: update-repo
 
 ensure-env:
 	@$(PYTHON_BOOTSTRAP) -c "import pathlib, sys; sys.exit(0 if pathlib.Path(r'$(PYTHON)').exists() else 1)" || $(MAKE) setup
-	@$(PYTHON) -c "import importlib.util, sys; mods=('uvicorn','streamlit','fastapi'); sys.exit(0 if all(importlib.util.find_spec(m) for m in mods) else 1)" || $(MAKE) install
+	@"$(PYTHON)" -c "import importlib.util, sys; mods=('uvicorn','streamlit','fastapi'); sys.exit(0 if all(importlib.util.find_spec(m) for m in mods) else 1)" || $(MAKE) install
 
 db-maint: ensure-env
-	$(PYTHON) $(DB_MAINT_SCRIPT) --db $(DB_PATH)
+	"$(PYTHON)" "$(DB_MAINT_SCRIPT)" --db "$(DB_PATH)"
 
 db-repack: ensure-env
-	$(PYTHON) $(DB_MAINT_SCRIPT) --db $(DB_PATH) --repack
+	"$(PYTHON)" "$(DB_MAINT_SCRIPT)" --db "$(DB_PATH)" --repack
 
 db-repack-replace: ensure-env
-	$(PYTHON) $(DB_MAINT_SCRIPT) --db $(DB_PATH) --repack --replace
+	"$(PYTHON)" "$(DB_MAINT_SCRIPT)" --db "$(DB_PATH)" --repack --replace
 
 publish-snapshot: ensure-env
-	$(PYTHON) $(SNAPSHOTS_SCRIPT) publish
+	"$(PYTHON)" "$(SNAPSHOTS_SCRIPT)" publish
 
 list-snapshots: ensure-env
-	$(PYTHON) $(SNAPSHOTS_SCRIPT) list
+	"$(PYTHON)" "$(SNAPSHOTS_SCRIPT)" list
 
 import-snapshot: ensure-env
-	$(PYTHON) $(SNAPSHOTS_SCRIPT) import $(SNAPSHOT_ID) --confirm
+	"$(PYTHON)" "$(SNAPSHOTS_SCRIPT)" import "$(SNAPSHOT_ID)" --confirm
 
 cleanup-snapshots: ensure-env
-	$(PYTHON) $(SNAPSHOTS_SCRIPT) cleanup
+	"$(PYTHON)" "$(SNAPSHOTS_SCRIPT)" cleanup
 
 dev-back:
 ifneq ($(SKIP_ENSURE),1)
@@ -117,7 +117,7 @@ ifneq ($(SKIP_ENSURE),1)
 endif
 	@echo "Starting frontend on port $(FRONT_PORT)"
 	@$(MAKE) stop-front
-	$(STREAMLIT) run $(FRONTEND_APP) --server.port $(FRONT_PORT)
+	$(STREAMLIT) run "$(FRONTEND_APP)" --server.port $(FRONT_PORT)
 
 dev: ensure-env
 	$(MAKE) -j 2 SKIP_ENSURE=1 dev-back dev-front
