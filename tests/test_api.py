@@ -431,6 +431,44 @@ def test_vinilos_options_expose_closed_values(tmp_path, monkeypatch):
     assert allowed_values["estado_carga"] == ["ALTA", "CAMBIO", "BAJA"]
 
 
+def test_discogs_search_includes_label_names(tmp_path, monkeypatch):
+    app = _load_app(tmp_path, monkeypatch)
+    client = TestClient(app)
+
+    main = importlib.import_module("src.backend.main")
+
+    class FakeResult:
+        def __init__(self, id_, title, data):
+            self.id = id_
+            self.title = title
+            self.thumb = None
+            self.data = data
+
+    class FakeDiscogsClient:
+        def search(self, *args, **kwargs):
+            return [
+                FakeResult(
+                    101,
+                    "John Coltrane - A Love Supreme",
+                    {"labels": [{"name": "Impulse!"}, {"name": "ABC-Paramount"}]},
+                ),
+                FakeResult(
+                    102,
+                    "Miles Davis - Kind Of Blue",
+                    {"label": ["Columbia"]},
+                ),
+            ]
+
+    monkeypatch.setattr(main, "get_client", lambda: FakeDiscogsClient())
+
+    response = client.get("/discogs/search", params={"q": "jazz"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["labels"] == ["Impulse!", "ABC-Paramount"]
+    assert body[1]["labels"] == ["Columbia"]
+
+
 def test_discogs_search_returns_structured_rate_limit_message(tmp_path, monkeypatch):
     app = _load_app(tmp_path, monkeypatch)
     client = TestClient(app)

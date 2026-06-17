@@ -150,13 +150,45 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+def _discogs_label_names(value: Any) -> list[str]:
+    labels: list[str] = []
+    for item in value or []:
+        if isinstance(item, dict):
+            label = item.get("name") or item.get("label") or item.get("title")
+        else:
+            label = getattr(item, "name", None) or str(item)
+
+        clean_label = str(label or "").strip()
+        if clean_label and clean_label not in labels:
+            labels.append(clean_label)
+
+    return labels
+
+
+def _discogs_search_result_labels(result: Any) -> list[str]:
+    data = getattr(result, "data", None)
+    if isinstance(data, dict):
+        labels = _discogs_label_names(data.get("labels") or data.get("label"))
+        if labels:
+            return labels
+
+    return _discogs_label_names(
+        getattr(result, "labels", None) or getattr(result, "label", None)
+    )
+
+
 @app.get("/discogs/search", response_model=List[DiscogsSearchResult])
 def search_discogs(q: str):
     try:
         client = get_client()
         results = list(client.search(q, type="release"))[:5]
         return [
-            {"id": r.id, "title": r.title, "thumb": getattr(r, "thumb", None)}
+            {
+                "id": r.id,
+                "title": r.title,
+                "thumb": getattr(r, "thumb", None),
+                "labels": _discogs_search_result_labels(r),
+            }
             for r in results
         ]
     except Exception as exc:

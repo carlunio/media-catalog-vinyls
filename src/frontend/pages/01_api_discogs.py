@@ -102,6 +102,9 @@ if query:
         with c2:
             st.markdown(f"**{r['title']}**")
             st.caption(f"Discogs ID: {r['id']}")
+            labels = [str(label).strip() for label in r.get("labels", []) if str(label).strip()]
+            if labels:
+                st.caption(f"Sello: {', '.join(labels)}")
 
             if st.button("Seleccionar este release", key=f"sel_{r['id']}"):
                 st.session_state["selected_release_id"] = r["id"]
