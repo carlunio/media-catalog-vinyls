@@ -100,7 +100,7 @@ Alcance:
 
 Tareas:
 
-- [ ] `P0` Actualizar el test de versión para que espere `1.0.0`.
+- [x] `P0` Actualizar el test de versión para que espere `1.0.0`.
 - [ ] `P0` Ejecutar `make lint`.
 - [ ] `P0` Ejecutar `make test`.
 - [ ] `P0` Revisar que `CHANGELOG.md` tenga sección `1.0.0`.
@@ -297,23 +297,24 @@ Casos de conflicto funcional:
 
 Tareas:
 
-- [ ] `P1` Añadir variables `CLOUD_SNAPSHOTS_DIR`, `SYNC_ACTOR`, `SYNC_DEVICE`, `SYNC_RETENTION_DAYS` y `SYNC_KEEP_MIN`.
-- [ ] `P1` Crear módulo de sincronización por snapshots, por ejemplo `src/backend/services/snapshots.py`.
-- [ ] `P1` Crear generación de snapshot reempaquetado sin modificar la DB activa.
-- [ ] `P1` Calcular y guardar `sha256`.
-- [ ] `P1` Generar nombres únicos de snapshot para no machacar copias previas si se publican varias seguidas.
-- [ ] `P1` Escribir manifiesto `.json` solo después de copiar la DB completa.
-- [ ] `P1` Crear lectura y validación de manifiestos.
-- [ ] `P1` Crear `data/sync_state.json` o tabla interna equivalente.
-- [ ] `P1` Detectar al arrancar si existe un snapshot externo más reciente.
-- [ ] `P1` Crear backup local obligatorio antes de importar.
-- [ ] `P1` Implementar importación manual desde snapshot verificado.
-- [ ] `P1` Implementar limpieza automática de snapshots antiguos.
-- [ ] `P1` Conservar siempre al menos `SYNC_KEEP_MIN` snapshots.
-- [ ] `P1` Conservar siempre el último snapshot de cada actor/dispositivo.
+- [x] `P1` Añadir variables `CLOUD_SNAPSHOTS_DIR`, `SYNC_ACTOR`, `SYNC_DEVICE`, `SYNC_RETENTION_DAYS` y `SYNC_KEEP_MIN`.
+- [x] `P1` Crear módulo de sincronización por snapshots, por ejemplo `src/backend/services/snapshots.py`.
+- [x] `P1` Crear generación de snapshot reempaquetado sin modificar la DB activa.
+- [x] `P1` Calcular y guardar `sha256`.
+- [x] `P1` Generar nombres únicos de snapshot para no machacar copias previas si se publican varias seguidas.
+- [x] `P1` Escribir manifiesto `.json` solo después de copiar la DB completa.
+- [x] `P1` Crear lectura y validación de manifiestos.
+- [x] `P1` Crear `data/sync_state.json` o tabla interna equivalente.
+- [x] `P1` Detectar desde la pantalla de datos si existe un snapshot externo más reciente.
+- [x] `P1` Crear backup local obligatorio antes de importar.
+- [x] `P1` Implementar importación manual desde snapshot verificado.
+- [x] `P1` Implementar limpieza automática de snapshots antiguos.
+- [x] `P1` Conservar siempre al menos `SYNC_KEEP_MIN` snapshots.
+- [x] `P1` Conservar siempre el último snapshot de cada actor/dispositivo.
 - [ ] `P2` Permitir snapshots protegidos que no se borren en limpieza automática.
-- [ ] `P2` Añadir comandos `make publish-snapshot`, `make import-snapshot`, `make list-snapshots` y `make cleanup-snapshots`.
-- [ ] `P2` Añadir pantalla Streamlit "Datos" o "Sistema" con publicar, importar, listar y limpiar snapshots.
+- [x] `P2` Añadir comandos `make publish-snapshot`, `make list-snapshots` y `make cleanup-snapshots`.
+- [x] `P2` Añadir `make import-snapshot` para la importación manual.
+- [x] `P2` Añadir pantalla Streamlit "Datos" con publicar, importar, listar y limpiar snapshots.
 - [ ] `P2` Documentar el protocolo de uso entre dos personas.
 - [ ] `P2` Añadir tests con snapshots válidos, incompletos, corruptos y antiguos.
 
@@ -568,10 +569,10 @@ Criterios de aceptación:
 - [ ] Registro de versión de esquema.
 - [ ] Validación de integridad de DB.
 - [ ] Evitar borrados completos si falla una fuente auxiliar como `secciones.csv`.
-- [ ] Publicación de snapshots reempaquetados en carpeta sincronizada.
-- [ ] Importación manual desde snapshot verificado.
-- [ ] Estado local de sincronización mediante `sync_state.json` o tabla equivalente.
-- [ ] Limpieza automática de snapshots antiguos con retención mínima.
+- [x] Publicación de snapshots reempaquetados en carpeta sincronizada.
+- [x] Importación manual desde snapshot verificado.
+- [x] Estado local de sincronización mediante `sync_state.json`.
+- [x] Limpieza automática de snapshots antiguos con retención mínima.
 
 ### Backend
 
@@ -585,8 +586,8 @@ Criterios de aceptación:
 ### Frontend
 
 - [ ] Diagnóstico local.
-- [ ] Pantalla para publicar, importar y listar snapshots.
-- [ ] Aviso al detectar snapshot externo más reciente.
+- [x] Pantalla para publicar, importar y listar snapshots.
+- [x] Aviso al detectar snapshot externo más reciente.
 - [ ] Filtros y búsqueda en revisión.
 - [ ] Mejor estado de carga y errores.
 - [ ] Confirmaciones para acciones sensibles.
@@ -597,7 +598,7 @@ Criterios de aceptación:
 - [ ] CI.
 - [ ] Lockfile.
 - [ ] Backup/restore.
-- [ ] Comandos de snapshots: publicar, importar, listar y limpiar.
+- [x] Comandos de snapshots: publicar, importar, listar y limpiar.
 - [ ] Comando de diagnóstico.
 - [ ] Logs.
 - [ ] Healthcheck ampliado.

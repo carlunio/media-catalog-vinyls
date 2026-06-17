@@ -47,6 +47,7 @@ endif
 BACKEND_APP := src.backend.main:app
 FRONTEND_APP := $(MAKEFILE_DIR)/src/frontend/app.py
 DB_MAINT_SCRIPT := $(MAKEFILE_DIR)/scripts/db_maintenance.py
+SNAPSHOTS_SCRIPT := $(MAKEFILE_DIR)/scripts/snapshots.py
 GIT_REMOTE ?= origin
 GIT_BRANCH ?= main
 DB_PATH ?= data/vinyls.duckdb
@@ -60,7 +61,7 @@ FRONT_PORT ?= 8501
 # =========================
 # PHONY
 # =========================
-.PHONY: setup install update-repo update ensure-env db-maint db-repack db-repack-replace dev-back dev-front dev stop stop-back stop-front restart clean lint format test
+.PHONY: setup install update-repo update ensure-env db-maint db-repack db-repack-replace publish-snapshot list-snapshots import-snapshot cleanup-snapshots dev-back dev-front dev stop stop-back stop-front restart clean lint format test
 
 setup:
 	$(PYTHON_BOOTSTRAP) -m venv $(VENV)
@@ -89,6 +90,18 @@ db-repack: ensure-env
 
 db-repack-replace: ensure-env
 	$(PYTHON) $(DB_MAINT_SCRIPT) --db $(DB_PATH) --repack --replace
+
+publish-snapshot: ensure-env
+	$(PYTHON) $(SNAPSHOTS_SCRIPT) publish
+
+list-snapshots: ensure-env
+	$(PYTHON) $(SNAPSHOTS_SCRIPT) list
+
+import-snapshot: ensure-env
+	$(PYTHON) $(SNAPSHOTS_SCRIPT) import $(SNAPSHOT_ID) --confirm
+
+cleanup-snapshots: ensure-env
+	$(PYTHON) $(SNAPSHOTS_SCRIPT) cleanup
 
 dev-back:
 ifneq ($(SKIP_ENSURE),1)

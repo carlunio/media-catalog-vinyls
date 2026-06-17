@@ -45,6 +45,10 @@ make update
 make db-maint
 make db-repack
 make db-repack-replace
+make publish-snapshot
+make list-snapshots
+make import-snapshot SNAPSHOT_ID=...
+make cleanup-snapshots
 make lint
 make test
 ```
@@ -56,12 +60,16 @@ Notas:
 - `make db-repack-replace` sustituye la base activa por la recompuesta y guarda una copia `*.pre_repack.bak.duckdb`.
 - Conviene parar backend y frontend antes de usar `db-repack-replace`.
 - La base activa de la aplicación es `data/vinyls.duckdb`.
+- La carpeta externa de snapshots se configura con `CLOUD_SNAPSHOTS_DIR`; por defecto apunta a `../bbdd/media-catalog-vinyls`, fuera del proyecto.
+- `make publish-snapshot` publica una copia reempaquetada de la base local en `CLOUD_SNAPSHOTS_DIR/snapshots`, con manifiesto JSON y `sha256`.
+- `make list-snapshots` lista los snapshots disponibles y `make cleanup-snapshots` aplica la retención configurada por `SYNC_RETENTION_DAYS` y `SYNC_KEEP_MIN`.
+- `make import-snapshot SNAPSHOT_ID=...` importa manualmente un snapshot verificado y crea antes un backup local en `data/backups/local`.
 - `data/secciones.csv` es el catálogo local de secciones de Todocolección; se usa para poblar `tc_sections` y el selector de sección TC.
 - La [guía de uso de Importamatic de Todocolección](https://www.todocoleccion.net/mitc/vendedor/guia-de-uso-importamatic) es la referencia para obtener `secciones.csv`, las plantillas de Importamatic y la información de valores admitidos en algunos campos.
 
 ## Esquema DuckDB
 
-- Tabla `discogs_release_payloads`: payload crudo de Discogs.
+- Tabla `discogs_release_payloads`: datos originales de Discogs.
 - Tabla `items`: catálogo editable de vinilos.
 - Tabla `inventory_field_allowed_values`: valores cerrados usados por el formulario.
 - Tabla `tc_sections`: árbol de secciones de Todocolección generado desde `data/secciones.csv`.

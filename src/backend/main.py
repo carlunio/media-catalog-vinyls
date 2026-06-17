@@ -14,9 +14,11 @@ from .discogs_client import DiscogsClientConfigurationError, get_client
 from .schemas.discogs import DiscogsSearchResult
 from .schemas.vinilos import ExportUploadRequest, ViniloListItem, ViniloOut, ViniloUpdateRequest
 from .schemas.vinilos_raw import ViniloRawIn
-from .services import export, vinilos, vinilos_raw
+from .schemas.snapshots import SnapshotImportRequest, SnapshotPublishRequest
+from .services import export, snapshots, vinilos, vinilos_raw
 from .services.vinilos import ViniloNotFoundError
 from .services.vinilos_raw import DuplicateViniloRawError
+from .services.snapshots import SnapshotError
 
 logger = logging.getLogger(__name__)
 APP_META = get_app_meta()
@@ -99,6 +101,12 @@ def _discogs_error_detail(status_code: int, upstream_message: str | None = None)
     if upstream_message:
         detail["upstream_message"] = upstream_message
     return detail
+
+
+def _raise_snapshot_error(exc: Exception) -> None:
+    if isinstance(exc, SnapshotError):
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 def _raise_discogs_error(exc: Exception) -> None:
@@ -308,3 +316,38 @@ def export_vinilos_clear_operation(payload: ExportUploadRequest):
 @app.post("/export/vinilos/mark-uploaded")
 def export_vinilos_mark_uploaded(payload: ExportUploadRequest):
     return export_vinilos_clear_operation(payload)
+
+
+@app.get("/snapshots/status")
+def snapshots_status():
+    return snapshots.get_status()
+
+
+@app.get("/snapshots")
+def snapshots_list():
+    return {"ok": True, "snapshots": snapshots.list_snapshots()}
+
+
+@app.post("/snapshots/publish")
+def snapshots_publish(payload: SnapshotPublishRequest | None = None):
+    request = payload or SnapshotPublishRequest()
+    try:
+        return snapshots.publish_snapshot(notes=request.notes, cleanup=request.cleanup)
+    except Exception as exc:
+        _raise_snapshot_error(exc)
+
+
+@app.post("/snapshots/import")
+def snapshots_import(payload: SnapshotImportRequest):
+    try:
+        return snapshots.import_snapshot(snapshot_id=payload.snapshot_id, confirm=payload.confirm)
+    except Exception as exc:
+        _raise_snapshot_error(exc)
+
+
+@app.post("/snapshots/cleanup")
+def snapshots_cleanup():
+    try:
+        return {"ok": True, **snapshots.cleanup_snapshots()}
+    except Exception as exc:
+        _raise_snapshot_error(exc)

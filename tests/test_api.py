@@ -1,4 +1,7 @@
+import hashlib
 import importlib
+import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -10,16 +13,36 @@ TESTS_DIR = Path(__file__).resolve().parent
 TC_SECTIONS_FIXTURE_PATH = TESTS_DIR / "fixtures" / "secciones.csv"
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _importamatic_template_columns() -> list[str]:
     return importlib.import_module("src.backend.services.vinilos").IMPORTAMATIC_EXPORT_COLUMNS
 
 
-def _load_app(tmp_path: Path, monkeypatch):
+def _load_app(
+    tmp_path: Path,
+    monkeypatch,
+    *,
+    sync_retention_days: str = "14",
+    sync_keep_min: str = "10",
+):
     monkeypatch.setenv("PROJECT_ROOT", str(tmp_path))
     monkeypatch.setenv("DB_PATH", str(tmp_path / "vinyls.duckdb"))
     monkeypatch.setenv("EXPORTS_DIR", str(tmp_path / "exports"))
     monkeypatch.setenv("TC_SECTIONS_CSV_PATH", str(TC_SECTIONS_FIXTURE_PATH))
     monkeypatch.setenv("IMPORTAMATIC_OTHERS_FIXED_COST", "4.5")
+    monkeypatch.setenv("CLOUD_SNAPSHOTS_DIR", str(tmp_path / "bbdd" / "media-catalog-vinyls"))
+    monkeypatch.setenv("SYNC_STATE_PATH", str(tmp_path / "sync_state.json"))
+    monkeypatch.setenv("SYNC_ACTOR", "test-user")
+    monkeypatch.setenv("SYNC_DEVICE", "test-device")
+    monkeypatch.setenv("SYNC_RETENTION_DAYS", sync_retention_days)
+    monkeypatch.setenv("SYNC_KEEP_MIN", sync_keep_min)
     monkeypatch.delenv("DISCOGS_TOKEN", raising=False)
 
     for module_name in list(sys.modules):
@@ -228,6 +251,165 @@ def test_items_schema_and_export_view_are_initialized(tmp_path, monkeypatch):
     assert body["estado_funda"] == "VG"
     assert body["comentarios_estado"] == "Carpeta con desgaste leve."
     assert body["estado_tc"] == "4"
+
+
+def test_snapshots_publish_and_list(tmp_path, monkeypatch):
+    app = _load_app(tmp_path, monkeypatch)
+    client = TestClient(app)
+
+    status_response = client.get("/snapshots/status")
+    assert status_response.status_code == 200
+    status = status_response.json()
+    assert status["local_db_exists"] is True
+    assert status["cloud_root"] == str(tmp_path / "bbdd" / "media-catalog-vinyls")
+    assert status["snapshots_count"] == 0
+
+    publish_response = client.post(
+        "/snapshots/publish",
+        json={"notes": "Snapshot de prueba", "cleanup": True},
+    )
+    assert publish_response.status_code == 200
+    payload = publish_response.json()
+    snapshot = payload["snapshot"]
+    assert snapshot["valid"] is True
+    assert snapshot["notes"] == "Snapshot de prueba"
+    assert snapshot["source_actor"] == "test-user"
+    assert snapshot["source_device"] == "test-device"
+
+    db_path = Path(snapshot["path"])
+    manifest_path = Path(snapshot["manifest_path"])
+    assert db_path.exists()
+    assert manifest_path.exists()
+
+    manifest = json.loads(manifest_path.read_text())
+    assert manifest["sha256"] == snapshot["sha256"]
+    assert manifest["db_filename"] == db_path.name
+
+    with duckdb.connect(str(db_path)) as con:
+        tables = {str(row[0]) for row in con.execute("PRAGMA show_tables").fetchall()}
+    assert "items" in tables
+    assert "discogs_release_payloads" in tables
+
+    list_response = client.get("/snapshots")
+    assert list_response.status_code == 200
+    snapshots = list_response.json()["snapshots"]
+    assert len(snapshots) == 1
+    assert snapshots[0]["snapshot_id"] == snapshot["snapshot_id"]
+
+    state = json.loads((tmp_path / "sync_state.json").read_text())
+    assert state["last_published_snapshot_id"] == snapshot["snapshot_id"]
+
+
+def test_snapshots_detects_and_imports_external_snapshot(tmp_path, monkeypatch):
+    app = _load_app(tmp_path, monkeypatch)
+    client = TestClient(app)
+
+    publish_response = client.post(
+        "/snapshots/publish",
+        json={"notes": "Snapshot base", "cleanup": False},
+    )
+    assert publish_response.status_code == 200
+    snapshot = publish_response.json()["snapshot"]
+
+    snapshots_dir = Path(snapshot["manifest_path"]).parent
+    external_id = "29990101_010101_000000_dani_laptop"
+    external_db_path = snapshots_dir / f"{external_id}.duckdb"
+    shutil.copy2(Path(snapshot["path"]), external_db_path)
+
+    external_manifest = json.loads(Path(snapshot["manifest_path"]).read_text())
+    external_manifest.update(
+        {
+            "snapshot_id": external_id,
+            "created_at": "2999-01-01T01:01:01+00:00",
+            "source_actor": "dani",
+            "source_device": "laptop",
+            "db_filename": external_db_path.name,
+            "sha256": _sha256_file(external_db_path),
+            "notes": "Snapshot externo",
+        }
+    )
+    (snapshots_dir / f"{external_id}.json").write_text(
+        json.dumps(external_manifest, indent=2, ensure_ascii=False) + "\n"
+    )
+
+    with duckdb.connect(str(tmp_path / "vinyls.duckdb")) as con:
+        con.execute(
+            """
+            INSERT INTO items (id, title, listing_status, updated_at)
+            VALUES ('VIN-LOCAL', 'Edicion local sin publicar', 'ALTA', now())
+            """
+        )
+
+    status_response = client.get("/snapshots/status")
+    assert status_response.status_code == 200
+    status = status_response.json()
+    assert status["has_external_snapshot"] is True
+    assert status["latest_external_snapshot"]["snapshot_id"] == external_id
+
+    unconfirmed_response = client.post(
+        "/snapshots/import", json={"snapshot_id": external_id, "confirm": False}
+    )
+    assert unconfirmed_response.status_code == 400
+
+    import_response = client.post(
+        "/snapshots/import", json={"snapshot_id": external_id, "confirm": True}
+    )
+    assert import_response.status_code == 200
+    import_payload = import_response.json()
+    assert import_payload["snapshot"]["snapshot_id"] == external_id
+
+    backup_path = Path(import_payload["backup_path"])
+    assert backup_path.exists()
+
+    with duckdb.connect(str(backup_path)) as con:
+        backup_count = con.execute(
+            "SELECT count(*) FROM items WHERE id = 'VIN-LOCAL'"
+        ).fetchone()[0]
+    assert backup_count == 1
+
+    with duckdb.connect(str(tmp_path / "vinyls.duckdb")) as con:
+        local_count = con.execute(
+            "SELECT count(*) FROM items WHERE id = 'VIN-LOCAL'"
+        ).fetchone()[0]
+    assert local_count == 0
+
+    state = json.loads((tmp_path / "sync_state.json").read_text())
+    assert state["last_imported_snapshot_id"] == external_id
+    assert state["last_import_backup_path"] == str(backup_path)
+
+    refreshed_status = client.get("/snapshots/status")
+    assert refreshed_status.status_code == 200
+    assert refreshed_status.json()["has_external_snapshot"] is False
+
+
+def test_snapshot_cleanup_keeps_configured_minimum(tmp_path, monkeypatch):
+    app = _load_app(
+        tmp_path,
+        monkeypatch,
+        sync_retention_days="0",
+        sync_keep_min="2",
+    )
+    client = TestClient(app)
+
+    published_paths = []
+    for index in range(3):
+        response = client.post(
+            "/snapshots/publish",
+            json={"notes": f"Snapshot {index}", "cleanup": False},
+        )
+        assert response.status_code == 200
+        published_paths.append(Path(response.json()["snapshot"]["path"]))
+
+    cleanup_response = client.post("/snapshots/cleanup")
+    assert cleanup_response.status_code == 200
+    cleanup_payload = cleanup_response.json()
+    assert len(cleanup_payload["deleted"]) == 1
+    assert len(cleanup_payload["kept"]) == 2
+
+    list_response = client.get("/snapshots")
+    assert list_response.status_code == 200
+    assert len(list_response.json()["snapshots"]) == 2
+    assert sum(1 for path in published_paths if path.exists()) == 2
 
 
 def test_vinilos_options_expose_closed_values(tmp_path, monkeypatch):

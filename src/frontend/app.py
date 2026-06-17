@@ -36,6 +36,11 @@ render_icon_cards(
             "Exportación",
             "Genera el CSV de Importamatic separado por almohadillas.",
         ),
+        (
+            "database",
+            "Datos",
+            "Publica snapshots de la base local en la carpeta sincronizada.",
+        ),
     ]
 )
 

@@ -1,6 +1,9 @@
 ## [Unreleased]
 
 ### Added
+- Se añade publicación de snapshots versionados de `data/vinyls.duckdb` en una carpeta externa configurable mediante `CLOUD_SNAPSHOTS_DIR`.
+- Se añaden endpoints, comandos `make` y una página de Streamlit para publicar, listar, importar y limpiar snapshots.
+- Se añade detección de snapshots externos válidos e importación manual con backup local obligatorio antes de reemplazar `data/vinyls.duckdb`.
 - Se añade `tc_section` en `items`, la tabla auxiliar `tc_sections` reproducible desde `data/secciones.csv` y un selector jerárquico compacto en la revisión manual.
 - `tipo_articulo` pasa a derivarse automáticamente de `formats` de las fichas de Discogs.
 - `creditos` pasa a derivarse automáticamente de `extraartists` en las fichas de Discogs.
