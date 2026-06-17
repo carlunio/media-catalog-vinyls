@@ -30,6 +30,7 @@ IMPORTAMATIC_EXPORT_COLUMNS = [
     "OPERACIÓN",
     "SECCIÓN",
     "ESTADO",
+    "DESCRIPCIÓN DEL ESTADO",
     "IMAGEN 1 (principal)",
     "IMAGEN 2",
     "IMAGEN 3",
@@ -297,6 +298,28 @@ def _clean_sql_text(expression: str) -> str:
         "NULLIF(TRIM(REGEXP_REPLACE("
         f"CAST({expression} AS VARCHAR), '[\\r\\n\\t]+', ' / ', 'g'"
         ")), '')"
+    )
+
+
+def _labeled_sql_part(label: str, expression: str) -> str:
+    clean_expression = _clean_sql_text(expression)
+    escaped_label = label.replace("'", "''")
+    return f"CASE WHEN {clean_expression} IS NOT NULL THEN '{escaped_label}: ' || {clean_expression} END"
+
+
+def _tc_condition_description_sql() -> str:
+    description = (
+        "CONCAT_WS('. ', "
+        f"{_labeled_sql_part('Disco', 'item.media_condition')}, "
+        f"{_labeled_sql_part('Funda', 'item.sleeve_condition')}, "
+        f"{_clean_sql_text('item.condition_comments')}"
+        ")"
+    )
+    return (
+        f"CASE "
+        f"WHEN NULLIF({description}, '') IS NULL THEN NULL "
+        f"WHEN REGEXP_MATCHES({description}, '[.!?]$') THEN {description} "
+        f"ELSE {description} || '.' END"
     )
 
 
@@ -899,6 +922,7 @@ def _ensure_export_view(con) -> None:
         "OPERACIÓN": "item.listing_status",
         "SECCIÓN": "item.tc_section",
         "ESTADO": "item.tc_condition",
+        "DESCRIPCIÓN DEL ESTADO": f"LEFT({_tc_condition_description_sql()}, 100)",
         "IMAGEN 1 (principal)": "NULL",
         "IMAGEN 2": "NULL",
         "IMAGEN 3": "NULL",

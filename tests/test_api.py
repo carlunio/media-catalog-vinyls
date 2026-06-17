@@ -202,6 +202,7 @@ def test_items_schema_and_export_view_are_initialized(tmp_path, monkeypatch):
         export_columns = [desc[0] for desc in export_cur.description]
         export_rows = export_cur.fetchall()
         assert export_columns == _importamatic_template_columns()
+        assert export_columns[8] == "DESCRIPCIÓN DEL ESTADO"
         assert len(export_rows) == 1
         assert export_rows[0][0] == "VIN-INIT"
         assert export_rows[0][1] == "A Love Supreme"
@@ -221,8 +222,9 @@ def test_items_schema_and_export_view_are_initialized(tmp_path, monkeypatch):
         assert export_rows[0][5] == "CAMBIO"
         assert export_rows[0][6] == "376"
         assert export_rows[0][7] == "4"
-        assert export_rows[0][11] == "Otros"
-        assert export_rows[0][12] == "4,5"
+        assert export_rows[0][8] == "Disco: VG+. Funda: VG. Carpeta con desgaste leve."
+        assert export_rows[0][12] == "Otros"
+        assert export_rows[0][13] == "4,5"
 
         con.execute(
             """
@@ -739,6 +741,7 @@ def test_prepare_update_and_export_flow(tmp_path, monkeypatch):
     header, *_ = download_response.text.splitlines()
     assert header.split("#") == _importamatic_template_columns()
     assert "Kind of Blue" in download_response.text
+    assert "Disco: VG+. Funda: VG. Ligero desgaste superficial, reproducción sólida." in download_response.text
     assert "<p><strong>Formato:</strong> Vinilo, LP, Edición revisada</p>" in download_response.text
     assert "<p><strong>Tracklist:</strong></p><ul><li>A1 - So What (9:22)</li></ul>" in download_response.text
     assert (
