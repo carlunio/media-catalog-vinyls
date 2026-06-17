@@ -12,10 +12,15 @@ from src.project_meta import get_app_meta
 from .config import EXPORTS_DIR
 from .discogs_client import DiscogsClientConfigurationError, get_client
 from .schemas.discogs import DiscogsSearchResult
-from .schemas.vinilos import ExportUploadRequest, ViniloListItem, ViniloOut, ViniloUpdateRequest
+from .schemas.vinilos import (
+    ExportUploadRequest,
+    ViniloListItem,
+    ViniloOut,
+    ViniloUpdateRequest,
+)
 from .schemas.vinilos_raw import ViniloRawIn
 from .schemas.snapshots import SnapshotImportRequest, SnapshotPublishRequest
-from .services import export, snapshots, vinilos, vinilos_raw
+from .services import cover_images, export, snapshots, vinilos, vinilos_raw
 from .services.vinilos import ViniloNotFoundError
 from .services.vinilos_raw import DuplicateViniloRawError
 from .services.snapshots import SnapshotError
@@ -29,7 +34,9 @@ vinilos_raw.init_table()
 vinilos.init_table()
 
 
-def _discogs_error_detail(status_code: int, upstream_message: str | None = None) -> dict[str, Any]:
+def _discogs_error_detail(
+    status_code: int, upstream_message: str | None = None
+) -> dict[str, Any]:
     base: dict[int, dict[str, str]] = {
         400: {
             "title": "Solicitud no válida a Discogs",
@@ -142,7 +149,9 @@ def _raise_discogs_error(exc: Exception) -> None:
         ) from exc
 
     message = str(exc).strip() or exc.__class__.__name__
-    raise HTTPException(status_code=502, detail=_discogs_error_detail(502, message)) from exc
+    raise HTTPException(
+        status_code=502, detail=_discogs_error_detail(502, message)
+    ) from exc
 
 
 @app.get("/health")
@@ -203,7 +212,9 @@ def get_release(release_id: int):
         release.refresh()
         return release.data
     except Exception as exc:
-        logger.exception("Discogs release lookup failed", extra={"release_id": release_id})
+        logger.exception(
+            "Discogs release lookup failed", extra={"release_id": release_id}
+        )
         _raise_discogs_error(exc)
 
 
@@ -259,7 +270,9 @@ def get_vinilo(id_: str):
 @app.put("/vinilos/{id_}")
 def update_vinilo(id_: str, payload: ViniloUpdateRequest):
     try:
-        serialized = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+        serialized = (
+            payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+        )
         updated = vinilos.update(id_, serialized)
     except ViniloNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -322,7 +335,9 @@ def export_vinilos_file(filename: str):
     if "/" in name or "\\" in name:
         raise HTTPException(status_code=400, detail="invalid filename")
     if not name.lower().endswith((".csv", ".txt")):
-        raise HTTPException(status_code=400, detail="only .csv or .txt exports are allowed")
+        raise HTTPException(
+            status_code=400, detail="only .csv or .txt exports are allowed"
+        )
 
     path = EXPORTS_DIR / name
     if not path.exists() or not path.is_file():
@@ -333,6 +348,12 @@ def export_vinilos_file(filename: str):
         media_type="text/csv" if name.lower().endswith(".csv") else "text/plain",
         filename=name,
     )
+
+
+@app.post("/export/vinilos/covers")
+def export_vinilos_covers(payload: ExportUploadRequest):
+    result = cover_images.download_cover_images(ids=payload.ids)
+    return {"ok": True, **result}
 
 
 @app.post("/export/vinilos/clear-operation")
@@ -372,7 +393,9 @@ def snapshots_publish(payload: SnapshotPublishRequest | None = None):
 @app.post("/snapshots/import")
 def snapshots_import(payload: SnapshotImportRequest):
     try:
-        return snapshots.import_snapshot(snapshot_id=payload.snapshot_id, confirm=payload.confirm)
+        return snapshots.import_snapshot(
+            snapshot_id=payload.snapshot_id, confirm=payload.confirm
+        )
     except Exception as exc:
         _raise_snapshot_error(exc)
 

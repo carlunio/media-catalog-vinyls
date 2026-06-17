@@ -22,7 +22,9 @@ def _sha256_file(path: Path) -> str:
 
 
 def _importamatic_template_columns() -> list[str]:
-    return importlib.import_module("src.backend.services.vinilos").IMPORTAMATIC_EXPORT_COLUMNS
+    return importlib.import_module(
+        "src.backend.services.vinilos"
+    ).IMPORTAMATIC_EXPORT_COLUMNS
 
 
 def _load_app(
@@ -35,9 +37,12 @@ def _load_app(
     monkeypatch.setenv("PROJECT_ROOT", str(tmp_path))
     monkeypatch.setenv("DB_PATH", str(tmp_path / "vinyls.duckdb"))
     monkeypatch.setenv("EXPORTS_DIR", str(tmp_path / "exports"))
+    monkeypatch.setenv("COVERS_DIR", str(tmp_path / "covers"))
     monkeypatch.setenv("TC_SECTIONS_CSV_PATH", str(TC_SECTIONS_FIXTURE_PATH))
     monkeypatch.setenv("IMPORTAMATIC_OTHERS_FIXED_COST", "4.5")
-    monkeypatch.setenv("CLOUD_SNAPSHOTS_DIR", str(tmp_path / "bbdd" / "media-catalog-vinyls"))
+    monkeypatch.setenv(
+        "CLOUD_SNAPSHOTS_DIR", str(tmp_path / "bbdd" / "media-catalog-vinyls")
+    )
     monkeypatch.setenv("SYNC_STATE_PATH", str(tmp_path / "sync_state.json"))
     monkeypatch.setenv("SYNC_ACTOR", "test-user")
     monkeypatch.setenv("SYNC_DEVICE", "test-device")
@@ -92,7 +97,9 @@ def test_vinilos_raw_duplicate_returns_conflict(tmp_path, monkeypatch):
 
         columns = {
             str(row[1]): str(row[2])
-            for row in con.execute("PRAGMA table_info('discogs_release_payloads')").fetchall()
+            for row in con.execute(
+                "PRAGMA table_info('discogs_release_payloads')"
+            ).fetchall()
         }
         assert columns["data"] == "JSON"
         assert "raw_json" not in columns
@@ -114,7 +121,9 @@ def test_vinilos_raw_schema_is_initialized(tmp_path, monkeypatch):
 
         columns = {
             str(row[1]): str(row[2])
-            for row in con.execute("PRAGMA table_info('discogs_release_payloads')").fetchall()
+            for row in con.execute(
+                "PRAGMA table_info('discogs_release_payloads')"
+            ).fetchall()
         }
         assert columns["data"] == "JSON"
         assert "raw_json" not in columns
@@ -135,13 +144,21 @@ def test_items_schema_and_export_view_are_initialized(tmp_path, monkeypatch):
         for node in tc_sections["nodes"]
         if isinstance(node, dict) and node.get("section_id")
     }
-    assert tc_leaf_nodes["450"]["display_path"] == "CD > Clásica, Ópera, Zarzuela y Marchas"
+    assert (
+        tc_leaf_nodes["450"]["display_path"]
+        == "CD > Clásica, Ópera, Zarzuela y Marchas"
+    )
     assert tc_leaf_nodes["376"]["display_path"] == (
         "Discos > LP Vinilo > Pop - Rock > Internacional de los 50 y 60"
     )
-    assert tc_leaf_nodes["924"]["display_path"] == "Discos > LP Vinilo > Pop - Rock > Internacional de los 70"
+    assert (
+        tc_leaf_nodes["924"]["display_path"]
+        == "Discos > LP Vinilo > Pop - Rock > Internacional de los 70"
+    )
     assert tc_leaf_nodes["466"]["display_path"] == "Discos > LP Vinilo > Reggae - Ska"
-    assert tc_leaf_nodes["467"]["display_path"] == "Discos > LP Vinilo > Punk - Hard Core"
+    assert (
+        tc_leaf_nodes["467"]["display_path"] == "Discos > LP Vinilo > Punk - Hard Core"
+    )
 
     with duckdb.connect(str(db_path)) as con:
         tables = {str(row[0]) for row in con.execute("PRAGMA show_tables").fetchall()}
@@ -177,8 +194,7 @@ def test_items_schema_and_export_view_are_initialized(tmp_path, monkeypatch):
         assert tc_section_columns["path_labels"] == "VARCHAR[]"
         assert tc_section_columns["path_keys"] == "VARCHAR[]"
 
-        con.execute(
-            """
+        con.execute("""
             INSERT INTO items (
                 id, product_type, title, artists, year,
                 labels, country, total_duration, estimated_weight,
@@ -195,8 +211,7 @@ def test_items_schema_and_export_view_are_initialized(tmp_path, monkeypatch):
                 24.50, 29.95, 'CAMBIO', 'En stock',
                 'A1 - Acknowledgement (7:42)', 'Notas iniciales', now()
             )
-            """
-        )
+            """)
 
         export_cur = con.execute('SELECT * FROM "export"')
         export_columns = [desc[0] for desc in export_cur.description]
@@ -226,14 +241,12 @@ def test_items_schema_and_export_view_are_initialized(tmp_path, monkeypatch):
         assert export_rows[0][12] == "Otros"
         assert export_rows[0][13] == "4,5"
 
-        con.execute(
-            """
+        con.execute("""
             INSERT INTO items (
                 id, title, media_condition, sleeve_condition, listing_status, updated_at
             )
             VALUES ('VIN-LEGACY', 'Legacy condition', 'NM or M-', 'P', 'ALTA', now())
-            """
-        )
+            """)
 
     importlib.import_module("src.backend.services.vinilos").init_table()
 
@@ -335,12 +348,10 @@ def test_snapshots_detects_and_imports_external_snapshot(tmp_path, monkeypatch):
     )
 
     with duckdb.connect(str(tmp_path / "vinyls.duckdb")) as con:
-        con.execute(
-            """
+        con.execute("""
             INSERT INTO items (id, title, listing_status, updated_at)
             VALUES ('VIN-LOCAL', 'Edicion local sin publicar', 'ALTA', now())
-            """
-        )
+            """)
 
     status_response = client.get("/snapshots/status")
     assert status_response.status_code == 200
@@ -486,7 +497,10 @@ def test_discogs_search_returns_structured_rate_limit_message(tmp_path, monkeypa
     assert response.status_code == 429
     detail = response.json()["detail"]
     assert detail["status_code"] == 429
-    assert "límite" in detail["message"].lower() or "limitando" in detail["message"].lower()
+    assert (
+        "límite" in detail["message"].lower()
+        or "limitando" in detail["message"].lower()
+    )
     assert "upstream_message" in detail
 
 
@@ -622,6 +636,64 @@ def test_prepare_builds_multiple_discogs_formats(tmp_path, monkeypatch):
     )
 
 
+def test_export_cover_images_downloads_and_skips_existing_files(tmp_path, monkeypatch):
+    app = _load_app(tmp_path, monkeypatch)
+    client = TestClient(app)
+
+    save_response = client.post(
+        "/vinilos_raw",
+        json={
+            "id": "VIN-COVER",
+            "data": {
+                "title": "Cover Test",
+                "artists": [{"name": "Example Artist"}],
+                "images": [{"uri": "https://img.example.test/cover-original"}],
+            },
+            "overwrite": False,
+        },
+    )
+    assert save_response.status_code == 200
+    assert client.post("/vinilos/preparar").status_code == 200
+
+    cover_images = importlib.import_module("src.backend.services.cover_images")
+    calls = []
+
+    class FakeImageResponse:
+        headers = {"Content-Type": "image/jpeg"}
+        content = b"fake image bytes"
+
+        def raise_for_status(self):
+            return None
+
+    def fake_get(url, *, headers=None, timeout=None):
+        calls.append({"url": url, "headers": headers, "timeout": timeout})
+        return FakeImageResponse()
+
+    monkeypatch.setattr(cover_images.requests, "get", fake_get)
+
+    response = client.post("/export/vinilos/covers", json={"ids": ["VIN-COVER"]})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["downloaded_count"] == 1
+    assert body["skipped_count"] == 0
+    assert body["missing_count"] == 0
+    assert body["failed_count"] == 0
+    cover_path = Path(body["downloaded"][0]["path"])
+    assert cover_path.name == "VIN-COVER.jpg"
+    assert cover_path.read_bytes() == b"fake image bytes"
+    assert calls[0]["url"] == "https://img.example.test/cover-original"
+
+    second_response = client.post("/export/vinilos/covers", json={"ids": ["VIN-COVER"]})
+
+    assert second_response.status_code == 200
+    second_body = second_response.json()
+    assert second_body["downloaded_count"] == 0
+    assert second_body["skipped_count"] == 1
+    assert second_body["skipped"][0]["path"] == str(cover_path)
+    assert len(calls) == 1
+
+
 def test_prepare_update_and_export_flow(tmp_path, monkeypatch):
     app = _load_app(tmp_path, monkeypatch)
     client = TestClient(app)
@@ -654,7 +726,9 @@ def test_prepare_update_and_export_flow(tmp_path, monkeypatch):
                     {"name": "Miles Davis", "role": "Trumpet"},
                     {"name": "Bill Evans", "role": "Piano"},
                 ],
-                "tracklist": [{"position": "A1", "title": "So What", "duration": "9:22"}],
+                "tracklist": [
+                    {"position": "A1", "title": "So What", "duration": "9:22"}
+                ],
                 "notes": "Classic.",
             },
             "overwrite": False,
@@ -711,14 +785,16 @@ def test_prepare_update_and_export_flow(tmp_path, monkeypatch):
     assert updated_vinilo["tipo_articulo"] == "Vinilo, LP, Edición revisada"
     assert updated_vinilo["estado_disco"] == "VG+"
     assert updated_vinilo["estado_funda"] == "VG"
-    assert updated_vinilo["comentarios_estado"] == "Ligero desgaste superficial, reproducción sólida."
+    assert (
+        updated_vinilo["comentarios_estado"]
+        == "Ligero desgaste superficial, reproducción sólida."
+    )
     assert updated_vinilo["estado_tc"] == "4"
     assert updated_vinilo["creditos"] == "Trumpet – Miles Davis\nPiano – Bill Evans"
     assert updated_vinilo["tc_section"] == "376"
 
     with duckdb.connect(str(tmp_path / "vinyls.duckdb")) as con:
-        con.execute(
-            """
+        con.execute("""
             INSERT INTO items (
                 id, product_type, title, artists, year,
                 labels, country, total_duration, estimated_weight,
@@ -735,10 +811,8 @@ def test_prepare_update_and_export_flow(tmp_path, monkeypatch):
                 18.00, 24.00, NULL, 'Vendido',
                 'A1 - Blue Train (10:43)', 'Registro ya exportado', now()
             )
-            """
-        )
-        con.execute(
-            """
+            """)
+        con.execute("""
             INSERT INTO items (
                 id, product_type, title, artists, year,
                 labels, country, total_duration, estimated_weight,
@@ -755,8 +829,7 @@ def test_prepare_update_and_export_flow(tmp_path, monkeypatch):
                 20.00, 26.00, 'CAMBIO', 'En stock',
                 'A1 - Giant Steps (4:43)', 'Otra ficha exportable', now()
             )
-            """
-        )
+            """)
 
     preview_response = client.get("/export/vinilos/preview")
     assert preview_response.status_code == 200
@@ -779,13 +852,21 @@ def test_prepare_update_and_export_flow(tmp_path, monkeypatch):
     header, *_ = download_response.text.splitlines()
     assert header.split("#") == _importamatic_template_columns()
     assert "Kind of Blue" in download_response.text
-    assert "Disco: VG+. Funda: VG. Ligero desgaste superficial, reproducción sólida." in download_response.text
-    assert "<p><strong>Formato:</strong> Vinilo, LP, Edición revisada</p>" in download_response.text
-    assert "<p><strong>Tracklist:</strong></p><ul><li>A1 - So What (9:22)</li></ul>" in download_response.text
+    assert (
+        "Disco: VG+. Funda: VG. Ligero desgaste superficial, reproducción sólida."
+        in download_response.text
+    )
+    assert (
+        "<p><strong>Formato:</strong> Vinilo, LP, Edición revisada</p>"
+        in download_response.text
+    )
+    assert (
+        "<p><strong>Tracklist:</strong></p><ul><li>A1 - So What (9:22)</li></ul>"
+        in download_response.text
+    )
     assert (
         "<p><strong>Créditos:</strong></p><ul><li>Trumpet – Miles Davis</li>"
-        "<li>Piano – Bill Evans</li></ul>"
-        in download_response.text
+        "<li>Piano – Bill Evans</li></ul>" in download_response.text
     )
     assert (
         "<p><strong>Notas:</strong></p><p>"

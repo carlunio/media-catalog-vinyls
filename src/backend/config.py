@@ -20,7 +20,9 @@ def _parse_decimal_setting(env_name: str, default_value: str) -> Decimal:
     try:
         parsed_value = Decimal(normalized_value)
     except InvalidOperation as exc:
-        raise ValueError(f"{env_name} must be a decimal number, got {raw_value!r}") from exc
+        raise ValueError(
+            f"{env_name} must be a decimal number, got {raw_value!r}"
+        ) from exc
     if parsed_value < 0:
         raise ValueError(f"{env_name} must be zero or positive, got {raw_value!r}")
     return parsed_value
@@ -47,8 +49,11 @@ def _parse_int_setting(env_name: str, default_value: str, *, minimum: int) -> in
 DB_SCHEMA = os.getenv("DB_SCHEMA", "main").strip() or "main"
 DB_PATH = _resolve_path("DB_PATH", "data/vinyls.duckdb")
 EXPORTS_DIR = _resolve_path("EXPORTS_DIR", "data/exports")
+COVERS_DIR = _resolve_path("COVERS_DIR", "data/covers")
 TC_SECTIONS_CSV_PATH = _resolve_path("TC_SECTIONS_CSV_PATH", "data/secciones.csv")
-CLOUD_SNAPSHOTS_DIR = _resolve_path("CLOUD_SNAPSHOTS_DIR", "../bbdd/media-catalog-vinyls")
+CLOUD_SNAPSHOTS_DIR = _resolve_path(
+    "CLOUD_SNAPSHOTS_DIR", "../bbdd/media-catalog-vinyls"
+)
 SYNC_STATE_PATH = _resolve_path("SYNC_STATE_PATH", "data/sync_state.json")
 SYNC_ACTOR = os.getenv("SYNC_ACTOR", os.getenv("USER", "usuario")).strip() or "usuario"
 SYNC_DEVICE = os.getenv("SYNC_DEVICE", socket.gethostname()).strip() or "equipo"
@@ -71,6 +76,7 @@ if __name__ == "__main__":
     print("DB_SCHEMA:", DB_SCHEMA)
     print("DB_PATH:", DB_PATH)
     print("EXPORTS_DIR:", EXPORTS_DIR)
+    print("COVERS_DIR:", COVERS_DIR)
     print("TC_SECTIONS_CSV_PATH:", TC_SECTIONS_CSV_PATH)
     print("CLOUD_SNAPSHOTS_DIR:", CLOUD_SNAPSHOTS_DIR)
     print("SYNC_STATE_PATH:", SYNC_STATE_PATH)

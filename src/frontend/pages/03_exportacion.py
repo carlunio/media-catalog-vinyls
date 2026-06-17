@@ -46,7 +46,9 @@ def _sync_export_selection(preview_ids: list[str]) -> list[str]:
     return selected_ids
 
 
-def _selection_rows(preview_rows: list[dict[str, Any]], selected_ids: list[str]) -> list[dict[str, Any]]:
+def _selection_rows(
+    preview_rows: list[dict[str, Any]], selected_ids: list[str]
+) -> list[dict[str, Any]]:
     selected_ids_set = set(selected_ids)
     rows: list[dict[str, Any]] = []
     for row in preview_rows:
@@ -73,7 +75,9 @@ def _export_result_dialog() -> None:
 
     st.success(f"Se ha generado `{export_name}` con {export_rows} filas seleccionadas.")
     if export_path:
-        st.caption(f"El fichero ya se ha guardado en la máquina donde corre la app: `{export_path}`.")
+        st.caption(
+            f"El fichero ya se ha guardado en la máquina donde corre la app: `{export_path}`."
+        )
 
     if isinstance(export_bytes, (bytes, bytearray)):
         st.download_button(
@@ -166,7 +170,8 @@ if preview_rows:
     selected_ids = [
         str(row.get(REFERENCE_COLUMN) or "").strip()
         for row in edited_selection_rows
-        if bool(row.get(SELECTION_COLUMN)) and str(row.get(REFERENCE_COLUMN) or "").strip()
+        if bool(row.get(SELECTION_COLUMN))
+        and str(row.get(REFERENCE_COLUMN) or "").strip()
     ]
     st.session_state["vinilos_export_selected_ids"] = selected_ids
     all_selected = len(selected_ids) == len(preview_ids)
@@ -174,7 +179,12 @@ if preview_rows:
     export_disabled = len(selected_ids) == 0
 
     with controls_container:
-        selection_toggle_col, selection_status_col, export_button_col = st.columns([1.2, 1.6, 0.8], gap="large")
+        (
+            selection_toggle_col,
+            selection_status_col,
+            export_button_col,
+            covers_button_col,
+        ) = st.columns([1.2, 1.25, 0.75, 0.9], gap="large")
         with selection_toggle_col:
             select_all_value = st.checkbox(
                 "Seleccionar todas las filas exportables",
@@ -182,12 +192,25 @@ if preview_rows:
                 key=select_all_key,
             )
         with selection_status_col:
-            st.caption(f"Seleccionadas para exportar: {len(selected_ids)} de {preview_count}.")
+            st.caption(
+                f"Seleccionadas para exportar: {len(selected_ids)} de {preview_count}."
+            )
         with export_button_col:
-            export_requested = st.button("Exportar a CSV", type="primary", disabled=export_disabled, width="stretch")
+            export_requested = st.button(
+                "Exportar CSV",
+                type="primary",
+                disabled=export_disabled,
+                width="stretch",
+            )
+        with covers_button_col:
+            covers_requested = st.button(
+                "Descargar portadas", disabled=export_disabled, width="stretch"
+            )
 
         if select_all_value != all_selected:
-            st.session_state["vinilos_export_selected_ids"] = list(preview_ids) if select_all_value else []
+            st.session_state["vinilos_export_selected_ids"] = (
+                list(preview_ids) if select_all_value else []
+            )
             st.session_state.pop("vinilos_export_selection_editor", None)
             st.rerun()
 else:
@@ -195,6 +218,7 @@ else:
     selected_ids = []
     st.session_state["vinilos_export_selected_ids"] = []
     export_requested = False
+    covers_requested = False
 
 if export_requested:
     with st.spinner("Generando archivo…"):
@@ -214,11 +238,49 @@ if export_requested:
             st.session_state["vinilos_export_filename"] = filename
             st.session_state["vinilos_export_path"] = str(result.get("path") or "")
             st.session_state["vinilos_export_rows"] = int(result.get("rows") or 0)
-            st.session_state["vinilos_export_ids"] = list(result.get("ids") or selected_ids)
+            st.session_state["vinilos_export_ids"] = list(
+                result.get("ids") or selected_ids
+            )
             st.session_state["vinilos_export_dialog_open"] = True
             st.rerun()
         except Exception as exc:
             st.error(f"No se pudo exportar el catálogo: {exc}")
+
+if covers_requested:
+    with st.spinner("Descargando portadas…"):
+        try:
+            result = api_post(
+                "/export/vinilos/covers",
+                json={"ids": selected_ids},
+                timeout=LONG_TIMEOUT_SECONDS,
+            )
+        except Exception as exc:
+            st.error(f"No se pudieron descargar las portadas: {exc}")
+        else:
+            downloaded_count = int(result.get("downloaded_count") or 0)
+            skipped_count = int(result.get("skipped_count") or 0)
+            missing_count = int(result.get("missing_count") or 0)
+            failed_count = int(result.get("failed_count") or 0)
+            covers_dir = str(result.get("covers_dir") or "")
+            summary = (
+                f"Portadas descargadas: {downloaded_count}. "
+                f"Ya existentes: {skipped_count}. "
+                f"Sin imagen: {missing_count}. "
+                f"Errores: {failed_count}."
+            )
+            if failed_count:
+                st.warning(summary)
+            else:
+                st.success(summary)
+            if covers_dir:
+                st.caption(f"Carpeta: `{covers_dir}`.")
+            failed = list(result.get("failed") or [])
+            if failed:
+                with st.expander("Ver errores de descarga"):
+                    for item in failed:
+                        item_id = str(item.get("id") or "")
+                        error = str(item.get("error") or "")
+                        st.caption(f"{item_id}: {error}")
 
 download_bytes = st.session_state.get("vinilos_export_bytes")
 download_name = st.session_state.get("vinilos_export_filename", "vinilos.csv")
