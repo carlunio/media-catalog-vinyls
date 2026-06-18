@@ -41,9 +41,12 @@ Fortalezas actuales:
 - `CHANGELOG.md` ya iniciado.
 - Tests de API que cubren flujos importantes: ingesta de datos originales de Discogs, preparación, revisión, exportación y errores de Discogs.
 - Comandos `make` para instalación, ejecución, actualización, lint, tests y mantenimiento de DuckDB.
-- Exportación apoyada en la vista `export`, con vista previa automática, selección por filas, descarga local del CSV y limpieza posterior de operación.
+- Exportación apoyada en la vista `export`, con vista previa automática, selección por filas, descarga local del CSV, descarga de portadas con la misma selección y limpieza posterior de operación.
+- La vista `export` construye el título con artista, sello y año, adapta los separadores cuando hay varios artistas y asigna `<ID>.jpg` y `<ID>_2.jpg` a los dos primeros campos de imagen.
+- Campo `DESCRIPCIÓN DEL ESTADO` compuesto desde estado de disco, estado de funda y comentario de conservación para Importamatic.
 - Selector jerárquico de `tc_section` generado desde `data/secciones.csv`.
 - Derivación automática de `tipo_articulo` y `creditos` a partir de las fichas de Discogs.
+- Previsualización de resultados Discogs con sellos (`labels`/`label`) cuando están disponibles.
 
 Limitaciones actuales:
 
@@ -57,6 +60,7 @@ Limitaciones actuales:
 - La lógica de dominio, migración, exportación y normalización está muy concentrada en `src/backend/services/vinilos.py`.
 - La interpretación jerárquica de `secciones.csv` sigue dependiendo de heurísticas específicas para nombres compuestos.
 - La exportación está acoplada hoy a la plantilla Importamatic de `Otros`; si vuelven otras variantes, habrá que versionar el mapeo.
+- La descarga de portadas es secuencial y evita repetir archivos existentes; para lotes muy grandes podrían hacer falta controles de pausa, reintento o límite por tanda.
 
 ## Principios de trabajo
 
@@ -539,7 +543,7 @@ Tareas:
 - [ ] `P1` Documentar backup y restore.
 - [ ] `P1` Documentar actualización estable.
 - [ ] `P1` Documentar migraciones cuando existan.
-- [ ] `P1` Documentar la plantilla Importamatic de `Otros` y el parámetro `IMPORTAMATIC_OTHERS_FIXED_COST`.
+- [x] `P1` Documentar en README la plantilla Importamatic de `Otros`, el formato del título, los nombres de imagen y el parámetro `IMPORTAMATIC_OTHERS_FIXED_COST`.
 - [ ] `P2` Crear `docs/architecture.md` o página Quarto equivalente.
 - [ ] `P2` Crear `docs/operations.md`.
 - [x] `P2` Crear `docs/release-process.md`.

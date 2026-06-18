@@ -220,7 +220,7 @@ def test_items_schema_and_export_view_are_initialized(tmp_path, monkeypatch):
         assert export_columns[8] == "DESCRIPCIÓN DEL ESTADO"
         assert len(export_rows) == 1
         assert export_rows[0][0] == "VIN-INIT"
-        assert export_rows[0][1] == "A Love Supreme"
+        assert export_rows[0][1] == "A Love Supreme (John Coltrane, Impulse!, 1965)"
         assert "<p><strong>Formato:</strong> Vinilo, LP</p>" in export_rows[0][2]
         assert "<p><strong>Año:</strong> 1965</p>" in export_rows[0][2]
         assert "<p><strong>Estado del vinilo:</strong>" not in export_rows[0][2]
@@ -238,6 +238,8 @@ def test_items_schema_and_export_view_are_initialized(tmp_path, monkeypatch):
         assert export_rows[0][6] == "376"
         assert export_rows[0][7] == "4"
         assert export_rows[0][8] == "Disco: VG+. Funda: VG. Carpeta con desgaste leve."
+        assert export_rows[0][9] == "VIN-INIT.jpg"
+        assert export_rows[0][10] == "VIN-INIT_2.jpg"
         assert export_rows[0][12] == "Otros"
         assert export_rows[0][13] == "4,5"
 
@@ -266,6 +268,32 @@ def test_items_schema_and_export_view_are_initialized(tmp_path, monkeypatch):
     assert body["estado_funda"] == "VG"
     assert body["comentarios_estado"] == "Carpeta con desgaste leve."
     assert body["estado_tc"] == "4"
+
+
+def test_export_title_uses_semicolons_for_multiple_artists(tmp_path, monkeypatch):
+    db_path = tmp_path / "vinyls.duckdb"
+    _load_app(tmp_path, monkeypatch)
+
+    with duckdb.connect(str(db_path)) as con:
+        con.execute("""
+            INSERT INTO items (
+                id, title, artists, labels, year, listing_status, updated_at
+            )
+            VALUES (
+                'VIN-DUO', 'Getz/Gilberto', 'Stan Getz, João Gilberto',
+                'Verve Records', 1964, 'CAMBIO', now()
+            )
+            """)
+
+        exported_title = con.execute(
+            'SELECT "TÍTULO" FROM "export" WHERE "REFERENCIA" = ?',
+            ["VIN-DUO"],
+        ).fetchone()[0]
+
+    assert (
+        exported_title
+        == "Getz/Gilberto (Stan Getz, João Gilberto; Verve Records; 1964)"
+    )
 
 
 def test_snapshots_publish_and_list(tmp_path, monkeypatch):

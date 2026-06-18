@@ -323,6 +323,23 @@ def _tc_condition_description_sql() -> str:
     )
 
 
+def _tc_export_title_sql() -> str:
+    title = _clean_sql_text("item.title")
+    artists = _clean_sql_text("item.artists")
+    labels = _clean_sql_text("item.labels")
+    year = _clean_sql_text("item.year")
+    details = (
+        f"CASE WHEN STRPOS(COALESCE({artists}, ''), ',') > 0 "
+        f"THEN CONCAT_WS('; ', {artists}, {labels}, {year}) "
+        f"ELSE CONCAT_WS(', ', {artists}, {labels}, {year}) END"
+    )
+    return (
+        f"CASE WHEN {title} IS NULL THEN NULL "
+        f"WHEN NULLIF({details}, '') IS NULL THEN {title} "
+        f"ELSE {title} || ' (' || {details} || ')' END"
+    )
+
+
 def _html_clean_sql_text(expression: str, *, preserve_line_breaks: bool = False) -> str:
     normalized_tabs = f"REGEXP_REPLACE(CAST({expression} AS VARCHAR), '[\\t]+', ' ', 'g')"
     if preserve_line_breaks:
@@ -915,7 +932,7 @@ def _ensure_export_view(con) -> None:
     price_sql = "REPLACE(CAST(item.sale_price AS VARCHAR), '.', ',')"
     select_expression_by_column = {
         EXPORT_REFERENCE_COLUMN: "item.id",
-        "TÍTULO": "LEFT(item.title, 100)",
+        "TÍTULO": f"LEFT({_tc_export_title_sql()}, 100)",
         "DESCRIPCIÓN": _tc_description_sql(),
         "AUTOR ": "LEFT(item.artists, 100)",
         "PRECIO": price_sql,
@@ -923,8 +940,8 @@ def _ensure_export_view(con) -> None:
         "SECCIÓN": "item.tc_section",
         "ESTADO": "item.tc_condition",
         "DESCRIPCIÓN DEL ESTADO": f"LEFT({_tc_condition_description_sql()}, 100)",
-        "IMAGEN 1 (principal)": "NULL",
-        "IMAGEN 2": "NULL",
+        "IMAGEN 1 (principal)": "item.id || '.jpg'",
+        "IMAGEN 2": "item.id || '_2.jpg'",
         "IMAGEN 3": "NULL",
         "FORMA DE ENVÍO": "'Otros'",
         "GASTOS FIJOS": f"'{IMPORTAMATIC_OTHERS_FIXED_COST_EXPORT}'",

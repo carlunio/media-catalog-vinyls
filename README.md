@@ -20,7 +20,7 @@ Puedes consultar:
 cp .env.example .env
 ```
 
-2. Ajusta al menos `DISCOGS_TOKEN`.
+2. Ajusta al menos `DISCOGS_TOKEN`. Opcionalmente, cambia `COVERS_DIR` si quieres guardar las portadas fuera de `data/covers`.
 
 ## Puesta en marcha
 
@@ -66,6 +66,9 @@ Notas:
 - `make import-snapshot SNAPSHOT_ID=...` importa manualmente un snapshot verificado y crea antes un backup local en `data/backups/local`.
 - `data/secciones.csv` es el catálogo local de secciones de Todocolección; se usa para poblar `tc_sections` y el selector de sección TC.
 - La [guía de uso de Importamatic de Todocolección](https://www.todocoleccion.net/mitc/vendedor/guia-de-uso-importamatic) es la referencia para obtener `secciones.csv`, las plantillas de Importamatic y la información de valores admitidos en algunos campos.
+- La búsqueda de Discogs muestra los sellos detectados en los campos `labels` o `label` de cada resultado.
+- La exportación CSV y la descarga de portadas usan la misma selección de filas exportables en la pantalla de exportación.
+- Las portadas se descargan en `COVERS_DIR` (`data/covers` por defecto), con el ID del catálogo como nombre de archivo, y se saltan si ya existe una imagen para ese ID.
 
 ## Esquema DuckDB
 
@@ -73,7 +76,9 @@ Notas:
 - Tabla `items`: catálogo editable de vinilos.
 - Tabla `inventory_field_allowed_values`: valores cerrados usados por el formulario.
 - Tabla `tc_sections`: árbol de secciones de Todocolección generado desde `data/secciones.csv`.
-- Vista `export`: plantilla Importamatic `Otros` separada por `#`, filtrada por `estado_carga` en `ALTA`, `CAMBIO` y `BAJA`, con `GASTOS FIJOS` configurable mediante `IMPORTAMATIC_OTHERS_FIXED_COST`.
+- Vista `export`: plantilla Importamatic `Otros` separada por `#`, filtrada por `estado_carga` en `ALTA`, `CAMBIO` y `BAJA`, con `GASTOS FIJOS` configurable mediante `IMPORTAMATIC_OTHERS_FIXED_COST` y `DESCRIPCIÓN DEL ESTADO` compuesta desde estado de disco, estado de funda y comentario de conservación.
+- En la vista `export`, `TÍTULO` se construye como `título (artista, sello, año)` cuando hay un artista. Si `artistas` contiene varios nombres separados por coma, conserva esas comas y separa los bloques con punto y coma: `título (artista 1, artista 2; sello; año)`.
+- Los dos primeros campos de imagen de la vista `export` se rellenan por defecto a partir de la referencia: `IMAGEN 1 (principal)` usa `<ID>.jpg` e `IMAGEN 2` usa `<ID>_2.jpg`.
 
 ## Versionado
 
@@ -95,4 +100,5 @@ Si más adelante quieres distinguir entornos paralelos, puedes usar opcionalment
 - `src/frontend`: interfaz de Streamlit
 - `data/`: base de datos DuckDB local y CSV auxiliares locales
 - `data/exports/`: exportaciones generadas
+- `data/covers/`: portadas descargadas con el nombre del ID del catálogo
 - `docs/`: documentación Quarto

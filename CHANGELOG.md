@@ -8,9 +8,14 @@
 - `tipo_articulo` pasa a derivarse automáticamente de `formats` de las fichas de Discogs.
 - `creditos` pasa a derivarse automáticamente de `extraartists` en las fichas de Discogs.
 - La exportación en Streamlit incorpora vista previa automática, selección por filas, selector general, descarga local del CSV y opción para quitar la operación a las fichas exportadas.
+- La búsqueda de Discogs muestra los sellos de cada resultado cuando la API devuelve `labels` o `label`.
+- La pantalla de exportación permite descargar portadas con la misma selección usada para el CSV, guardándolas en `COVERS_DIR` y saltando las que ya existan.
 
 ### Changed
 - La vista `export` pasa a seguir la plantilla `data/plantilla_importamatic_otros.csv`, con `FORMA DE ENVÍO` fijada a `Otros`.
+- La vista `export` construye `TÍTULO` como `título (artista, sello, año)` para un artista y como `título (artista 1, artista 2; sello; año)` cuando el campo de artistas contiene varios nombres separados por coma.
+- Los campos `IMAGEN 1 (principal)` e `IMAGEN 2` de la vista `export` se rellenan por defecto como `<ID>.jpg` y `<ID>_2.jpg`.
+- La exportación recupera `DESCRIPCIÓN DEL ESTADO`, compuesta desde estado del disco, estado de funda y comentario de conservación.
 - `GASTOS FIJOS` pasa a configurarse mediante `IMPORTAMATIC_OTHERS_FIXED_COST`.
 - Se consolida `data/vinyls.duckdb` como base activa, con `items` como tabla principal y `export` como vista de salida.
 
